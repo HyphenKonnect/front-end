@@ -118,11 +118,52 @@ export function ProfessionalProfilePage({
               </div>
             </ContentCard>
 
+            {professional.workingHours || professional.daysOff ? (
+              <ContentCard title="Availability details">
+                <div className="space-y-4 text-[15px] leading-7 text-[#5f5f5f]">
+                  {professional.workingHours ? (
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.14em] text-[#7e7e7e]">
+                        Working hours
+                      </p>
+                      <p className="mt-2">{professional.workingHours}</p>
+                    </div>
+                  ) : null}
+                  {professional.daysOff ? (
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.14em] text-[#7e7e7e]">
+                        Days off
+                      </p>
+                      <p className="mt-2">{professional.daysOff}</p>
+                    </div>
+                  ) : null}
+                </div>
+              </ContentCard>
+            ) : null}
+
             <ContentCard title="Therapeutic / consultation approach">
               <p className="text-[16px] leading-8 text-[#5f5f5f]">
                 {professional.approach}
               </p>
             </ContentCard>
+
+            {professional.feeCards?.length ? (
+              <ContentCard title="Fee cards">
+                <div className="space-y-3">
+                  {professional.feeCards.map((item) => (
+                    <div
+                      key={`${item.label}-${item.price}`}
+                      className="flex items-center justify-between rounded-[18px] bg-[#fcfbfb] px-4 py-3"
+                    >
+                      <p className="text-[15px] text-[#2b2b2b]">{item.label}</p>
+                      <p className="text-[15px] font-semibold text-[#f56969]">
+                        {item.price}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </ContentCard>
+            ) : null}
 
             <ContentCard title="Need help choosing?">
               <p className="text-[16px] leading-8 text-[#5f5f5f]">

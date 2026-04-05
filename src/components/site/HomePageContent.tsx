@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { motion } from "framer-motion";
@@ -629,12 +628,10 @@ function JourneyIntakeScreen() {
 function JourneyVideoScreen() {
   return (
     <div className="relative h-full overflow-hidden bg-[#111]">
-      <Image
-        src="/professionals/shreya-aila.jpeg"
+      <img
+        src="https://images.unsplash.com/photo-1517841905240-472988babdf9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=900"
         alt="Session preview"
-        fill
-        sizes="340px"
-        className="object-cover"
+        className="h-full w-full object-cover"
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/45" />
       <div className="absolute left-0 right-0 top-0 flex items-center justify-between px-7 pt-14 text-white">
@@ -646,11 +643,9 @@ function JourneyVideoScreen() {
         <span className="text-xl">⌄</span>
       </div>
       <div className="absolute bottom-28 right-6 overflow-hidden rounded-[16px] border border-white/20 shadow-xl">
-        <Image
-          src="/professionals/aashritha-akula.jpeg"
+        <img
+          src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400"
           alt="Participant preview"
-          width={92}
-          height={120}
           className="h-[120px] w-[92px] object-cover"
         />
       </div>
@@ -677,11 +672,9 @@ function JourneyDashboardScreen() {
       <div className="rounded-[28px] border border-white bg-[#f6f1f1] px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
         <div className="mb-6 flex items-center justify-between rounded-[16px] bg-white px-4 py-3 shadow-sm">
           <div className="flex items-center gap-3">
-            <Image
-              src="/professionals/sritha-nandiraj.jpg"
+            <img
+              src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=240"
               alt="User avatar"
-              width={40}
-              height={40}
               className="h-10 w-10 rounded-full object-cover"
             />
             <span className="text-[12px] font-medium text-[#2b2b2b]">

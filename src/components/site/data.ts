@@ -35,6 +35,9 @@ export type ProfessionalProfile = {
   expertise: string[];
   approach: string;
   languages: string[];
+  workingHours?: string;
+  daysOff?: string;
+  feeCards?: { label: string; price: string }[];
 };
 
 export const serviceCatalog = [
@@ -127,7 +130,7 @@ export const professionals: ProfessionalProfile[] = [
     rating: 0,
     reviews: 0,
     experience: "4+ years",
-    rate: "On request",
+    rate: "Rs. 2500/session",
     available: true,
     location: "Bengaluru",
     intro:
@@ -147,6 +150,15 @@ export const professionals: ProfessionalProfile[] = [
     approach:
       "Empathic, trauma-aware therapy focused on emotional processing, resilience, and grounded healing.",
     languages: ["English", "Kannada", "Hindi"],
+    workingHours:
+      "Monday to Friday: 9:00 AM - 6:00 PM; Saturday: 9:00 AM - 12:00 PM",
+    daysOff: "Sundays and public holidays (emergencies only)",
+    feeCards: [
+      { label: "1 hour therapy", price: "Rs. 2500" },
+      { label: "4 sessions therapy package", price: "Rs. 9700" },
+      { label: "1.5 hours therapy", price: "Rs. 3750" },
+      { label: "2 hours therapy", price: "Rs. 5000" },
+    ],
   },
   {
     id: 2,
@@ -158,14 +170,14 @@ export const professionals: ProfessionalProfile[] = [
     rating: 0,
     reviews: 0,
     experience: "3+ years",
-    rate: "On request",
+    rate: "Rs. 1700/session",
     available: true,
     location: "Hyderabad",
     intro:
       "Evidence-based support for trauma, emotional regulation, addiction recovery, and couple dynamics.",
     about: [
-      "Aashritha is a psychologist and community educator who works with individuals and couples through trauma, relationship distress, and emotional regulation challenges.",
-      "She combines structure with empathy and helps clients reconnect with their inner strength through practical tools and a safe therapeutic relationship.",
+      "Hi, I’m Aashritha, a psychologist passionate about helping people navigate life’s toughest challenges with safety and steadiness.",
+      "I work with individuals and couples on emotional regulation, childhood trauma, PTSD, de-addiction, and relationship concerns, while helping them build healthier coping strategies and stronger connections.",
     ],
     qualifications: [
       "MA in Clinical Psychology",
@@ -182,6 +194,14 @@ export const professionals: ProfessionalProfile[] = [
     approach:
       "Structured, skills-based therapy using CBT and DBT alongside emotionally supportive care.",
     languages: ["English", "Telugu", "Hindi"],
+    workingHours: "Monday to Thursday: 10:00 AM - 4:00 PM",
+    daysOff: "Friday, Saturday, Sunday (negotiable depending on emergencies)",
+    feeCards: [
+      { label: "1 hour therapy", price: "Rs. 1700" },
+      { label: "4 sessions therapy package", price: "Rs. 6600" },
+      { label: "1.5 hours therapy", price: "Rs. 2550" },
+      { label: "2 hours therapy", price: "Rs. 3400" },
+    ],
   },
   {
     id: 3,
@@ -193,14 +213,14 @@ export const professionals: ProfessionalProfile[] = [
     rating: 0,
     reviews: 0,
     experience: "7+ years",
-    rate: "On request",
+    rate: "Rs. 2200/session",
     available: true,
     location: "Kolkata",
     intro:
       "Holistic therapy for trauma healing, intimacy concerns, identity work, and deeper self-acceptance.",
     about: [
-      "Titir is a counselling psychologist whose work brings together relational, psychodynamic, and somatic perspectives.",
-      "She supports clients working through trauma, intimacy struggles, identity questions, and self-doubt with a compassionate and holistic lens.",
+      "Titir is a counselling psychologist with over seven years of experience supporting individuals through trauma healing, intimacy challenges, and identity exploration.",
+      "Her work blends psychodynamic, relational, and somatic approaches to help clients reconnect with their inner strength and move toward empowerment, self-acceptance, and fulfilling relationships.",
     ],
     qualifications: ["MSc. in Counselling Psychology"],
     expertise: [
@@ -213,6 +233,15 @@ export const professionals: ProfessionalProfile[] = [
     approach:
       "Relational and psychodynamic therapy informed by somatic practices, mindfulness, and emotional depth.",
     languages: ["English", "Bengali", "Hindi"],
+    workingHours:
+      "Weekdays: 6:00 PM - 10:00 PM; Weekends: 10:00 AM - 2:00 PM and 4:00 PM - 7:00 PM",
+    daysOff: "Thursday",
+    feeCards: [
+      { label: "1 hour therapy", price: "Rs. 2200" },
+      { label: "4 sessions therapy package", price: "Rs. 8500" },
+      { label: "1.5 hours therapy", price: "Rs. 3300" },
+      { label: "2 hours therapy", price: "Rs. 4400" },
+    ],
   },
   {
     id: 4,
@@ -224,14 +253,14 @@ export const professionals: ProfessionalProfile[] = [
     rating: 0,
     reviews: 0,
     experience: "7+ years",
-    rate: "On request",
+    rate: "Rs. 4000/session",
     available: true,
     location: "Mumbai",
     intro:
       "Inclusive and strengths-based psychological care shaped by diverse experience across India, the UK, and Australia.",
     about: [
-      "Shreya brings experience from outpatient, inpatient, probation, and community care settings across multiple countries.",
-      "She offers culturally sensitive support for complex mental health needs while helping clients feel empowered and understood.",
+      "With training and experience across the United Kingdom, Australia, and India, Shreya has worked with a diverse range of clients in outpatient, inpatient, probation, and community settings.",
+      "She offers a compassionate, empathetic, and culturally sensitive space while using a strengths-based bio-psycho-social model to keep clients at the center of recovery.",
     ],
     qualifications: [
       "MSc. Psychology",
@@ -247,6 +276,14 @@ export const professionals: ProfessionalProfile[] = [
     approach:
       "Strengths-based, queer-affirmative, and bio-psycho-social care tailored to each client’s context and goals.",
     languages: ["English", "Hindi"],
+    workingHours: "Wednesday to Sunday: 12:00 PM - 7:00 PM",
+    daysOff: "Monday and Tuesday",
+    feeCards: [
+      { label: "1 hour therapy", price: "Rs. 4000" },
+      { label: "4 sessions therapy package", price: "Rs. 15000" },
+      { label: "1.5 hours therapy", price: "Rs. 6000" },
+      { label: "2 hours therapy", price: "Rs. 8000" },
+    ],
   },
   {
     id: 5,
@@ -258,48 +295,64 @@ export const professionals: ProfessionalProfile[] = [
     rating: 0,
     reviews: 0,
     experience: "3 years",
-    rate: "On request",
+    rate: "Rs. 500/session",
     available: true,
     location: "Leeds",
     intro:
       "Clear, compassionate medical guidance from a clinician experienced in acute care and critical settings.",
     about: [
-      "Madhurika is a UK-based healthcare professional focused on helping patients understand acute medical challenges and care options.",
-      "Her communication style is accessible, reassuring, and rooted in clinical precision.",
+      "Madhurika is a UK-based healthcare professional passionate about health awareness and bridging gaps in healthcare knowledge.",
+      "With her clinical expertise, she empowers patients by providing clear, accessible information and compassionate care that helps individuals navigate acute medical challenges with confidence.",
     ],
     qualifications: ["MBBS"],
-    expertise: ["Acute medicine", "Critical care context", "Patient education"],
+    expertise: [
+      "Acute medicine",
+      "Outpatient consultations (OP)",
+      "General medical practice",
+      "Preventive health and primary care",
+      "Patient communication and ethical practice",
+    ],
     approach:
       "Straightforward, clinically grounded consultations that help people make informed health decisions.",
     languages: ["English", "Telugu", "Hindi"],
+    workingHours: "9:00 AM - 5:00 PM",
+    daysOff: "Saturday and Sunday",
   },
   {
     id: 6,
     slug: "sreshta-rao-madhavaram",
-    name: "Sreshta Rao Madhavaram",
-    specialty: "Legal Counsel - Human Rights",
+    name: "Sreshta Rao",
+    specialty: "Co-Founder & Head Legal Counsel",
     category: "legal",
     image: "/professionals/sreshta-rao-madhavaram.png",
     rating: 0,
     reviews: 0,
     experience: "2+ years",
-    rate: "On request",
+    rate: "Rs. 3000 / 2 sessions",
     available: true,
-    location: "India",
+    location: "Hyderabad",
     intro:
-      "Legal guidance with a human-rights lens for people navigating emotionally and socially complex situations.",
+      "Human-rights-focused legal guidance for people navigating abuse, harassment, and emotionally complex legal situations.",
     about: [
-      "Sreshta Rao Madhavaram is part of the legal support network at The Hyphen Konnect, with a focus on human-rights-informed guidance.",
-      "Her profile is being expanded further, but she should be surfaced as a legal advisor rather than a medical professional.",
+      "Sreshta is a committed Human Rights Advocate with proven experience in legal strategy, advocacy, and operational leadership.",
+      "As Co-Founder and Head Legal Counsel at The Hyphen Konnect, she has led over 20 cases supporting individuals facing domestic abuse and harassment while focusing on empowering vulnerable communities and delivering impactful legal solutions.",
     ],
-    qualifications: ["Legal profile details being refreshed"],
+    qualifications: [
+      "LLM in Human Rights, University of Edinburgh",
+      "Enrolled as an advocate in the Telangana High Court",
+      "BA LLB, Symbiosis Law School Hyderabad, Symbiosis International University, Pune",
+    ],
     expertise: [
-      "Human-rights-oriented legal guidance",
-      "Support for emotionally complex legal situations",
+      "Human rights law",
+      "Domestic abuse and harassment matters",
+      "Legal advocacy and strategy",
     ],
     approach:
-      "Care-aware legal guidance focused on clarity, dignity, and practical next steps.",
+      "Care-aware legal advocacy focused on dignity, clarity, and practical next steps for people navigating difficult legal situations.",
     languages: ["English"],
+    workingHours: "1:30 PM - 7:00 PM",
+    daysOff: "Monday and Tuesday",
+    feeCards: [{ label: "2 sessions legal package", price: "Rs. 3000" }],
   },
   {
     id: 7,
@@ -311,7 +364,7 @@ export const professionals: ProfessionalProfile[] = [
     rating: 0,
     reviews: 0,
     experience: "6 years",
-    rate: "On request",
+    rate: "Rs. 1200/session",
     available: true,
     location: "Hyderabad",
     intro:
@@ -341,7 +394,7 @@ export const professionals: ProfessionalProfile[] = [
     rating: 0,
     reviews: 0,
     experience: "6+ years",
-    rate: "On request",
+    rate: "Rs. 3000 / 2 sessions",
     available: true,
     location: "Hyderabad",
     intro:
@@ -361,42 +414,54 @@ export const professionals: ProfessionalProfile[] = [
     approach:
       "Ethical, solution-oriented representation that keeps communication clear and actionable.",
     languages: ["English", "Telugu", "Hindi"],
+    feeCards: [{ label: "2 sessions legal package", price: "Rs. 3000" }],
   },
   {
     id: 9,
     slug: "sowmiya-bhas",
     name: "Sowmiya Bhas",
-    specialty: "Therapist - Trauma & Sleep Health",
+    specialty: "Hypnotherapist and Past Life Regression Therapist",
     category: "therapist",
     image: "/professionals/sowmiya-bhas.jpg",
     rating: 0,
     reviews: 0,
     experience: "19 years",
-    rate: "On request",
+    rate: "Rs. 4000/session",
     available: true,
     location: "Chennai",
     intro:
-      "Deep transformational therapy blending psychotherapy, hypnotherapy, regression work, and emotional healing.",
+      "Transformational therapy that helps clients reconnect with their authentic power through hypnotherapy, regression work, and one-on-one guidance.",
     about: [
-      "Sowmiya helps clients navigate emotional blocks, difficult life phases, and inner misalignment through an integrative therapeutic style.",
-      "Her work is centered on helping people access clarity, resilience, and a stronger connection to their authentic self.",
+      "Seeking help outside of yourself is often one of the hardest things to do, and sometimes even to recognize. Sowmiya works from the belief that support is not failure, but a path toward rediscovering the answers already within you.",
+      "Her specialty is helping clients navigate muddy emotional waters so they can step into their true, authentic power. Through multiple techniques and tools, she guides people toward becoming their most resilient selves while using the past as a teacher to build a brighter future.",
     ],
     qualifications: [
       "MS. Psychotherapy",
       "MSc. Psychology",
       "Clinical Hypnotherapist and Trainer",
-      "Diploma in Past Life Regression Therapy",
+      "Diploma in Past Life Regression Therapy, TASSO (Netherlands)",
+      "Access Bars Practitioner and Facilitator",
+      "Gaia Touch Practitioner",
+      "Shamanic Practitioner",
+      "Animal Communicator",
+      "Graphologist",
+      "MBA in Human Resources",
     ],
     expertise: [
+      "Life coaching",
       "One-on-one therapy",
-      "Past life regression",
-      "Emotional healing",
-      "Subconscious reprogramming",
-      "Spiritual integration and energy work",
     ],
     approach:
-      "Integrative therapy that combines deep emotional work with experiential healing modalities.",
+      "Integrative healing that combines reflection, therapeutic tools, and experiential modalities to help clients move forward with clarity and self-trust.",
     languages: ["English", "Tamil", "Hindi"],
+    workingHours: "2:00 PM - 7:00 PM",
+    daysOff: "Weekends, with exceptions in case of emergencies",
+    feeCards: [
+      { label: "1 hour therapy", price: "Rs. 4000" },
+      { label: "4 sessions therapy package", price: "Rs. 16500" },
+      { label: "1.5 hours therapy", price: "Rs. 6300" },
+      { label: "2 hours therapy", price: "Rs. 8400" },
+    ],
   },
   {
     id: 10,
@@ -408,25 +473,28 @@ export const professionals: ProfessionalProfile[] = [
     rating: 0,
     reviews: 0,
     experience: "3+ years",
-    rate: "On request",
+    rate: "Rs. 500/session",
     available: true,
     location: "Hyderabad",
     intro:
       "Patient-first primary care support shaped by hands-on experience in government and private hospital settings.",
     about: [
-      "Dr. Mamatha Yadav is a general physician with experience managing both acute and ongoing health concerns.",
-      "She is valued for calm decision-making, ethical clinical care, and strong communication with patients.",
+      "Dr. M Mamatha Yadav is a dedicated and passionate general physician with hands-on experience in both government and private hospital settings across India.",
+      "Her calm and focused approach, especially during high-pressure clinical environments, has helped patients navigate challenging health situations with trust, clarity, and ethical care.",
     ],
     qualifications: ["MBBS"],
     expertise: [
+      "Outpatient consultations (OP)",
       "General medical practice",
       "Preventive health and primary care",
+      "Patient communication and ethical practice",
       "Acute and chronic condition management",
-      "Outpatient consultations",
     ],
     approach:
       "Accessible primary care with a focus on clarity, prevention, and continuity.",
     languages: ["English", "Telugu", "Hindi"],
+    workingHours: "9:00 AM - 5:00 PM",
+    daysOff: "Saturday and Sunday",
   },
   {
     id: 11,
@@ -438,28 +506,30 @@ export const professionals: ProfessionalProfile[] = [
     rating: 0,
     reviews: 0,
     experience: "4 years",
-    rate: "On request",
+    rate: "Rs. 500/session",
     available: true,
     location: "Leeds",
     intro:
       "Practical emergency and acute-care guidance from a clinician working in high-pressure hospital settings.",
     about: [
-      "Dr. Mounish Reddy works in emergency medicine and brings experience from both Indian and UK healthcare systems.",
-      "He helps people navigate urgent medical concerns, internal medicine issues, and decisions around acute care.",
+      "Dr. Mounish Reddy is a clinically driven emergency medicine professional with four years of experience in acute care settings.",
+      "Currently serving as a Junior Clinical Fellow in Emergency Medicine at Leeds Teaching Hospitals, NHS (UK), he brings hands-on expertise in managing acute medical conditions and guiding patients through critical care decisions.",
     ],
     qualifications: [
       "MBBS",
       "Clinical Fellowship in Emergency Medicine",
     ],
     expertise: [
-      "Emergency medicine",
       "Acute medical problems",
-      "Critical care context",
+      "Emergency medicine and critical care",
+      "Clinical decision-making and patient guidance",
       "Internal medicine",
     ],
     approach:
       "Clear, efficient consultations informed by emergency care and evidence-based clinical judgment.",
     languages: ["English", "Telugu", "Hindi"],
+    workingHours: "9:00 AM - 5:00 PM",
+    daysOff: "Saturday and Sunday",
   },
   {
     id: 12,
@@ -471,7 +541,7 @@ export const professionals: ProfessionalProfile[] = [
     rating: 0,
     reviews: 0,
     experience: "4 years",
-    rate: "On request",
+    rate: "Rs. 2100/session",
     available: true,
     location: "Pune",
     intro:
@@ -490,12 +560,21 @@ export const professionals: ProfessionalProfile[] = [
     approach:
       "Holistic psychiatric care combining diagnostic clarity with empathic treatment planning.",
     languages: ["English", "Hindi", "Marathi"],
+    workingHours:
+      "Thursday to Saturday: 9:00 AM - 9:00 PM; Tuesday and Wednesday: 3:00 PM - 9:00 PM; Sunday: 9:00 AM - 3:00 PM",
+    daysOff: "Monday",
+    feeCards: [
+      { label: "1 hour therapy", price: "Rs. 2100" },
+      { label: "4 sessions therapy package", price: "Rs. 8200" },
+      { label: "1.5 hours therapy", price: "Rs. 3150" },
+      { label: "2 hours therapy", price: "Rs. 4200" },
+    ],
   },
   {
     id: 13,
     slug: "ashima-sood",
-    name: "Ashima Sood",
-    specialty: "Meditation Guide & Yoga Teacher",
+    name: "Ashima Sood-Patil",
+    specialty: "Meditation Guide, Yoga Teacher",
     category: "wellness",
     image: "/professionals/ashima-sood.jpeg",
     rating: 0,
@@ -505,21 +584,30 @@ export const professionals: ProfessionalProfile[] = [
     available: true,
     location: "Dubai",
     intro:
-      "Trauma-informed movement, meditation, and somatic practices for emotional healing and self-reconnection.",
+      "Trauma-informed meditation, yoga, and somatic practices for emotional healing, self-trust, and grounded reconnection.",
     about: [
-      "Ashima is a meditation guide and yoga teacher who supports clients through trauma recovery, emotional healing, and nervous-system regulation.",
-      "Her sessions are designed to help people feel safer in their bodies and more connected to their own inner steadiness.",
+      "Ashima supports individuals in healing from trauma and reconnecting with their sense of self through meditation, yoga, and somatic practices.",
+      "Many of her clients come after deep emotional wounds, including narcissistic abuse, and her trauma-informed sessions are designed to help them move from pain and overwhelm toward calm, clarity, courage, and a renewed sense of self-trust.",
     ],
     qualifications: ["500 RYT (Registered Yoga Teacher)"],
     expertise: [
       "Guided meditations",
       "Mindful movement",
-      "Somatic practices",
+      "Somatics",
       "Trauma-informed healing",
     ],
     approach:
-      "Gentle, body-aware wellness sessions that blend breath, movement, and grounded self-repair.",
+      "Gentle, body-aware wellness sessions that combine safe movement, breath, and presence to help clients feel grounded, reclaim their voice, and step into a new chapter of healing.",
     languages: ["English", "Hindi"],
+    workingHours:
+      "Morning sessions: 6:00 AM - 8:00 AM; Evening sessions: 4:00 PM - 6:00 PM",
+    daysOff: "Sunday (unless pre-booked) and Tuesday",
+    feeCards: [
+      { label: "1 hour session", price: "Rs. 1200" },
+      { label: "4 sessions package", price: "Rs. 4500" },
+      { label: "1.5 hours session", price: "Rs. 1800" },
+      { label: "2 hours session", price: "Rs. 2400" },
+    ],
   },
   {
     id: 14,
@@ -564,14 +652,14 @@ export const professionals: ProfessionalProfile[] = [
     rating: 0,
     reviews: 0,
     experience: "3+ years",
-    rate: "On request",
+    rate: "Rs. 3000 / 2 sessions",
     available: true,
     location: "Mumbai",
     intro:
-      "Practical, empathetic legal guidance for family, property, employment, and contractual matters.",
+      "Practical, empathetic legal guidance for personal disputes, family matters, property issues, employment concerns, and contracts.",
     about: [
-      "Vidisha Bhate is an advocate with experience across litigation and corporate law, including work at the Bombay High Court.",
-      "She combines technical legal understanding with client-sensitive communication to help people move through disputes with confidence.",
+      "Vidisha Bhate is an advocate with experience across litigation and corporate law, including her time at the Bombay High Court.",
+      "Her work advising clients through personal disputes, alongside her practice in contractual and corporate law, gives her a strong combination of legal clarity and empathy aimed at helping people move toward swift and favorable settlements.",
     ],
     qualifications: ["B.Tech.", "LL.B.", "LL.M."],
     expertise: [
@@ -583,6 +671,7 @@ export const professionals: ProfessionalProfile[] = [
     approach:
       "Balanced legal strategy that aims for clarity, speed, and fair outcomes without losing empathy.",
     languages: ["English", "Hindi", "Marathi"],
+    feeCards: [{ label: "2 sessions legal package", price: "Rs. 3000" }],
   },
 ];
 
