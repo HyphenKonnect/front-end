@@ -16,6 +16,12 @@ import {
 } from "lucide-react";
 import { ProtectedRoute } from "../auth/ProtectedRoute";
 import { apiFetch, parseJsonResponse } from "../../lib/api";
+import {
+  getBookingStatusTone,
+  getBookingTimeline,
+  getServiceLabel,
+} from "../../lib/booking-helpers";
+import { formatDateTime, formatInr } from "../../lib/formatting";
 import { professionals } from "../site/data";
 import {
   DashboardCard,
@@ -60,10 +66,18 @@ type AdminBooking = {
   _id: string;
   scheduledAt: string;
   status: string;
+  serviceId?: string;
   paymentStatus?: string;
   totalAmount?: number;
-  platformFee?: number;
+  platformCommission?: number;
   professionalFee?: number;
+  timestamps?: {
+    createdAt?: string;
+    confirmedAt?: string;
+    cancelledAt?: string;
+    completedAt?: string;
+    rescheduledAt?: string;
+  };
   professionalId?: string | { name?: string; email?: string };
   clientId?: string | { name?: string; email?: string };
 };
@@ -83,6 +97,7 @@ export function AdminDashboard() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [bookings, setBookings] = useState<AdminBooking[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -95,7 +110,7 @@ export function AdminDashboard() {
         apiFetch("/api/admin/users").then((response) =>
           parseJsonResponse<AdminUser[]>(response),
         ),
-        apiFetch("/api/bookings").then((response) =>
+        apiFetch("/api/admin/bookings").then((response) =>
           parseJsonResponse<AdminBooking[]>(response),
         ),
       ]);
@@ -114,6 +129,7 @@ export function AdminDashboard() {
 
       if (bookingsResult.status === "fulfilled") {
         setBookings(bookingsResult.value);
+        setSelectedBookingId((current) => current || bookingsResult.value[0]?._id || null);
       }
 
       if (results.every((result) => result.status === "rejected")) {
@@ -163,7 +179,7 @@ export function AdminDashboard() {
     ).length;
     const completed = bookings.filter((booking) => booking.status === "completed").length;
     const paymentPending = bookings.filter(
-      (booking) => booking.paymentStatus && booking.paymentStatus !== "completed",
+      (booking) => booking.paymentStatus && booking.paymentStatus !== "captured",
     ).length;
 
     return { pending, confirmed, completed, paymentPending };
@@ -171,7 +187,7 @@ export function AdminDashboard() {
 
   const revenueSnapshot = useMemo(() => {
     const gross = bookings.reduce((sum, booking) => sum + (booking.totalAmount || 0), 0);
-    const platform = bookings.reduce((sum, booking) => sum + (booking.platformFee || 0), 0);
+    const platform = bookings.reduce((sum, booking) => sum + (booking.platformCommission || 0), 0);
     const professional = bookings.reduce((sum, booking) => sum + (booking.professionalFee || 0), 0);
 
     return {
@@ -205,6 +221,8 @@ export function AdminDashboard() {
       )
       .slice(0, 6);
   }, [bookings]);
+  const selectedBooking =
+    bookings.find((booking) => booking._id === selectedBookingId) || upcomingAppointments[0] || null;
 
   return (
     <ProtectedRoute allowedRoles={["admin"]}>
@@ -246,14 +264,14 @@ export function AdminDashboard() {
               },
               {
                 label: "Payments processed",
-                value: `Rs. ${(summary?.revenue.totalProcessed || revenueSnapshot.gross) / 100}`,
+                value: formatInr(summary?.revenue.totalProcessed || revenueSnapshot.gross),
                 note: `${bookingInsights.paymentPending} payment records still need follow-up`,
               },
               {
                 label: "Platform commission",
-                value: `Rs. ${(summary?.revenue.platformCommission || revenueSnapshot.platform) / 100}`,
+                value: formatInr(summary?.revenue.platformCommission || revenueSnapshot.platform),
                 note: summary
-                  ? `GST collected Rs. ${summary.revenue.gstCollected / 100}`
+                  ? `GST collected ${formatInr(summary.revenue.gstCollected)}`
                   : "Finance totals expand as booking records grow",
               },
             ]}
@@ -429,14 +447,17 @@ export function AdminDashboard() {
 
                   return (
                     <div key={booking._id} className="rounded-[22px] bg-[#f7f5f4] p-5">
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div
+                        onClick={() => setSelectedBookingId(booking._id)}
+                        className="flex cursor-pointer flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+                      >
                         <div>
                           <p className="text-lg font-semibold text-[#2b2b2b]">{professionalName}</p>
                           <p className="mt-1 text-sm text-[#7e7e7e]">
                             Client: {clientName}
                           </p>
                           <p className="mt-1 text-sm text-[#7e7e7e]">
-                            {new Date(booking.scheduledAt).toLocaleString("en-IN")}
+                            {formatDateTime(booking.scheduledAt)}
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -447,7 +468,7 @@ export function AdminDashboard() {
                             {booking.paymentStatus || "payment pending"}
                           </span>
                           <span className="rounded-full bg-white px-3 py-1 font-medium text-[#2b2b2b]">
-                            Rs. {(booking.totalAmount || 0) / 100}
+                            {formatInr(booking.totalAmount || 0)}
                           </span>
                         </div>
                       </div>
@@ -463,19 +484,75 @@ export function AdminDashboard() {
             )}
           </DashboardCard>
 
-          <DashboardCard title="Finance and governance" className="lg:col-span-12" eyebrow="Leadership">
+          <DashboardCard
+            title={selectedBooking ? "Booking detail panel" : "Finance and governance"}
+            className="lg:col-span-12"
+            eyebrow={selectedBooking ? "Selected booking" : "Leadership"}
+          >
+            {selectedBooking ? (
+              <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+                <div className="rounded-[22px] bg-[#f7f5f4] p-5">
+                  <p className="text-sm text-[#7e7e7e]">Service</p>
+                  <p className="mt-2 text-lg font-semibold text-[#2b2b2b]">
+                    {getServiceLabel(selectedBooking.serviceId)}
+                  </p>
+                  <p className="mt-3 text-sm text-[#7e7e7e]">
+                    {formatDateTime(selectedBooking.scheduledAt)}
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${getBookingStatusTone(
+                        selectedBooking.status,
+                      )}`}
+                    >
+                      {selectedBooking.status}
+                    </span>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[#2b2b2b]">
+                      {selectedBooking.paymentStatus || "payment pending"}
+                    </span>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[#2b2b2b]">
+                      {formatInr(selectedBooking.totalAmount || 0)}
+                    </span>
+                  </div>
+                </div>
+                <div className="rounded-[22px] bg-[#f7f5f4] p-5">
+                  <p className="text-sm font-semibold text-[#2b2b2b]">Timeline</p>
+                  <div className="mt-4 space-y-3">
+                    {getBookingTimeline(
+                      selectedBooking.status,
+                      selectedBooking.scheduledAt,
+                      selectedBooking.timestamps,
+                    ).map((item) => (
+                      <div key={item.label} className="flex items-start gap-3">
+                        <span
+                          className={`mt-1 h-2.5 w-2.5 rounded-full ${
+                            item.active ? "bg-[#f56969]" : "bg-[#d8d3d0]"
+                          }`}
+                        />
+                        <div>
+                          <p className="text-sm font-medium text-[#2b2b2b]">{item.label}</p>
+                          <p className="text-sm text-[#7e7e7e]">
+                            {item.value ? formatDateTime(item.value) : "Not reached yet"}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : null}
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {[
                 {
                   icon: CreditCard,
                   title: "Gross booking value",
-                  value: `Rs. ${revenueSnapshot.gross / 100}`,
+                  value: formatInr(revenueSnapshot.gross),
                   note: "Total booking amount across current records.",
                 },
                 {
                   icon: IndianRupee,
                   title: "Professional payouts",
-                  value: `Rs. ${revenueSnapshot.professional / 100}`,
+                  value: formatInr(revenueSnapshot.professional),
                   note: "Useful for payout planning once Razorpay settlement is wired.",
                 },
                 {

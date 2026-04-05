@@ -7,6 +7,12 @@ import { useAuth } from "../auth/AuthProvider";
 import { ProtectedRoute } from "../auth/ProtectedRoute";
 import { apiFetch, parseJsonResponse } from "../../lib/api";
 import {
+  getBookingStatusTone,
+  getBookingTimeline,
+  getServiceLabel,
+} from "../../lib/booking-helpers";
+import { formatDateTime, formatInr } from "../../lib/formatting";
+import {
   DashboardCard,
   DashboardGrid,
   DashboardShell,
@@ -18,6 +24,15 @@ type ProfessionalBooking = {
   _id: string;
   scheduledAt: string;
   status: string;
+  serviceId?: string;
+  paymentStatus?: string;
+  timestamps?: {
+    createdAt?: string;
+    confirmedAt?: string;
+    cancelledAt?: string;
+    completedAt?: string;
+    rescheduledAt?: string;
+  };
   clientId?:
     | string
     | {
@@ -30,16 +45,22 @@ type ProfessionalBooking = {
 export function ProfessionalDashboard() {
   const { user } = useAuth();
   const [bookings, setBookings] = useState<ProfessionalBooking[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
 
   useEffect(() => {
     let ignore = false;
 
     const loadData = async () => {
       try {
+        if (!ignore) setLoading(true);
         const response = await apiFetch("/api/bookings");
         const data = await parseJsonResponse<ProfessionalBooking[]>(response);
-        if (!ignore) setBookings(data);
+        if (!ignore) {
+          setBookings(data);
+          setSelectedBookingId((current) => current || data[0]?._id || null);
+        }
       } catch (loadError) {
         if (!ignore) {
           setError(
@@ -48,6 +69,8 @@ export function ProfessionalDashboard() {
               : "We could not load your sessions yet.",
           );
         }
+      } finally {
+        if (!ignore) setLoading(false);
       }
     };
 
@@ -66,6 +89,13 @@ export function ProfessionalDashboard() {
     (sum, booking) => sum + (booking.professionalFee || 0),
     0,
   );
+  const capturedEarnings = bookings
+    .filter((booking) => booking.paymentStatus === "captured")
+    .reduce((sum, booking) => sum + (booking.professionalFee || 0), 0);
+  const selectedBooking =
+    upcoming.find((booking) => booking._id === selectedBookingId) ||
+    upcoming[0] ||
+    null;
 
   return (
     <ProtectedRoute allowedRoles={["professional"]}>
@@ -100,8 +130,8 @@ export function ProfessionalDashboard() {
               },
               {
                 label: "Projected earnings",
-                value: `Rs. ${projectedEarnings / 100}`,
-                note: "Based on current booking records",
+                value: formatInr(projectedEarnings),
+                note: `Captured so far ${formatInr(capturedEarnings)}`,
               },
               {
                 label: "Verification",
@@ -134,6 +164,7 @@ export function ProfessionalDashboard() {
                   return (
                     <div
                       key={booking._id}
+                      onClick={() => setSelectedBookingId(booking._id)}
                       className="rounded-[22px] bg-[#f7f5f4] p-5"
                     >
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -142,12 +173,23 @@ export function ProfessionalDashboard() {
                             {clientName}
                           </p>
                           <p className="mt-1 text-sm text-[#7e7e7e]">
-                            {new Date(booking.scheduledAt).toLocaleString()}
+                            {formatDateTime(booking.scheduledAt)}
                           </p>
+                          {typeof booking.clientId === "object" && booking.clientId?.email ? (
+                            <p className="mt-1 text-sm text-[#7e7e7e]">{booking.clientId.email}</p>
+                          ) : null}
                         </div>
-                        <span className="rounded-full bg-white px-3 py-1 text-xs font-medium capitalize text-[#f56969]">
-                          {booking.status}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className="rounded-full bg-white px-3 py-1 text-xs font-medium capitalize text-[#f56969]">
+                            {booking.status}
+                          </span>
+                          <span className="rounded-full bg-white px-3 py-1 text-xs font-medium capitalize text-[#2b2b2b]">
+                            {booking.paymentStatus || "payment pending"}
+                          </span>
+                          <span className="text-sm font-medium text-[#2b2b2b]">
+                            {formatInr(booking.professionalFee || 0)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   );
@@ -155,7 +197,7 @@ export function ProfessionalDashboard() {
               </div>
             ) : (
               <EmptyState
-                title="No professional sessions yet"
+                title={loading ? "Loading your sessions" : "No professional sessions yet"}
                 description={
                   error ||
                   "Once clients begin booking through the new platform, your upcoming sessions will appear here."
@@ -165,44 +207,94 @@ export function ProfessionalDashboard() {
           </DashboardCard>
 
           <DashboardCard
-            title="Practice setup"
+            title={selectedBooking ? "Session details" : "Practice setup"}
             className="lg:col-span-5"
-            eyebrow="Readiness"
+            eyebrow={selectedBooking ? "Selected booking" : "Readiness"}
           >
-            <div className="space-y-4">
-              {[
-                {
-                  icon: BadgeCheck,
-                  title: "Credential verification",
-                  text: user?.profile?.verified
-                    ? "Your profile is marked as verified."
-                    : "Admin review is still needed before public approval is complete.",
-                },
-                {
-                  icon: CalendarClock,
-                  title: "Availability",
-                  text: "We can add editable working hours and blocked dates next.",
-                },
-                {
-                  icon: IndianRupee,
-                  title: "Pricing and payouts",
-                  text: "Razorpay and commission split can plug into this panel in Phase 3.",
-                },
-                {
-                  icon: UserRound,
-                  title: "Public profile",
-                  text: "Bio, specialization, and qualifications can be surfaced here once profile editing is added.",
-                },
-              ].map((item) => (
-                <div key={item.title} className="rounded-[22px] bg-[#f7f5f4] p-5">
-                  <item.icon className="h-5 w-5 text-[#f56969]" />
-                  <p className="mt-3 font-semibold text-[#2b2b2b]">{item.title}</p>
-                  <p className="mt-2 text-sm leading-6 text-[#7e7e7e]">
-                    {item.text}
+            {selectedBooking ? (
+              <div className="space-y-4">
+                <div className="rounded-[22px] bg-[#f7f5f4] p-5">
+                  <p className="text-sm text-[#7e7e7e]">Service</p>
+                  <p className="mt-2 text-lg font-semibold text-[#2b2b2b]">
+                    {getServiceLabel(selectedBooking.serviceId)}
                   </p>
+                  <p className="mt-3 text-sm text-[#7e7e7e]">
+                    {formatDateTime(selectedBooking.scheduledAt)}
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${getBookingStatusTone(
+                        selectedBooking.status,
+                      )}`}
+                    >
+                      {selectedBooking.status}
+                    </span>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[#2b2b2b]">
+                      {selectedBooking.paymentStatus || "payment pending"}
+                    </span>
+                  </div>
                 </div>
-              ))}
-            </div>
+                <div className="rounded-[22px] bg-[#f7f5f4] p-5">
+                  <p className="text-sm font-semibold text-[#2b2b2b]">Timeline</p>
+                  <div className="mt-4 space-y-3">
+                    {getBookingTimeline(
+                      selectedBooking.status,
+                      selectedBooking.scheduledAt,
+                      selectedBooking.timestamps,
+                    ).map((item) => (
+                      <div key={item.label} className="flex items-start gap-3">
+                        <span
+                          className={`mt-1 h-2.5 w-2.5 rounded-full ${
+                            item.active ? "bg-[#f56969]" : "bg-[#d8d3d0]"
+                          }`}
+                        />
+                        <div>
+                          <p className="text-sm font-medium text-[#2b2b2b]">{item.label}</p>
+                          <p className="text-sm text-[#7e7e7e]">
+                            {item.value ? formatDateTime(item.value) : "Not reached yet"}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {[
+                  {
+                    icon: BadgeCheck,
+                    title: "Credential verification",
+                    text: user?.profile?.verified
+                      ? "Your profile is marked as verified."
+                      : "Admin review is still needed before public approval is complete.",
+                  },
+                  {
+                    icon: CalendarClock,
+                    title: "Availability",
+                    text: "Your saved working hours are already feeding the booking calendar. Editable blocking can be next.",
+                  },
+                  {
+                    icon: IndianRupee,
+                    title: "Pricing and payouts",
+                    text: "Commission split and GST logic are now in backend pricing; payout views can expand next.",
+                  },
+                  {
+                    icon: UserRound,
+                    title: "Public profile",
+                    text: "Bio, specialization, and qualifications can be surfaced here once profile editing is added.",
+                  },
+                ].map((item) => (
+                  <div key={item.title} className="rounded-[22px] bg-[#f7f5f4] p-5">
+                    <item.icon className="h-5 w-5 text-[#f56969]" />
+                    <p className="mt-3 font-semibold text-[#2b2b2b]">{item.title}</p>
+                    <p className="mt-2 text-sm leading-6 text-[#7e7e7e]">
+                      {item.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </DashboardCard>
         </DashboardGrid>
       </DashboardShell>

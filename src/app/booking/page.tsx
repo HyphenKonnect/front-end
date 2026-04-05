@@ -59,6 +59,20 @@ type LiveAvailabilityResponse = {
   professional?: BackendProfessionalRecord;
 };
 
+type BookingDetailsResponse = {
+  _id: string;
+  serviceId?: string;
+  scheduledAt: string;
+  status: string;
+  professionalId?:
+    | string
+    | {
+        _id?: string;
+        id?: string;
+        name?: string;
+      };
+};
+
 const localDirectory: DirectoryProfessional[] = professionals.map((professional) => ({
   id: professional.id,
   slug: professional.slug,
@@ -81,6 +95,7 @@ export default function BookingPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const today = useMemo(() => startOfDay(new Date()), []);
   const initialService = searchParams.get("service") || "";
+  const bookingIdFromQuery = searchParams.get("bookingId") || "";
   const [step, setStep] = useState(1);
   const [selectedService, setSelectedService] = useState(initialService);
   const [selectedProfessional, setSelectedProfessional] = useState<string | number | null>(null);
@@ -93,12 +108,16 @@ export default function BookingPage() {
   const [usingLiveData, setUsingLiveData] = useState(false);
   const [availabilityData, setAvailabilityData] = useState<LiveAvailabilityResponse | null>(null);
   const [loadingAvailability, setLoadingAvailability] = useState(false);
+  const [loadingRescheduleBooking, setLoadingRescheduleBooking] = useState(false);
   const [bookingError, setBookingError] = useState("");
   const [bookingSuccess, setBookingSuccess] = useState<{
     bookingId: string;
     scheduledAt: string;
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [rescheduleBooking, setRescheduleBooking] = useState<BookingDetailsResponse | null>(null);
+
+  const isRescheduleMode = Boolean(bookingIdFromQuery);
 
   useEffect(() => {
     const nextService = searchParams.get("service") || "";
@@ -137,6 +156,72 @@ export default function BookingPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!bookingIdFromQuery || authLoading || !isAuthenticated) return;
+
+    let cancelled = false;
+
+    const loadBooking = async () => {
+      try {
+        setLoadingRescheduleBooking(true);
+        const response = await apiFetch(`/api/bookings/${bookingIdFromQuery}`);
+        const data = await parseJsonResponse<BookingDetailsResponse>(response);
+        if (!cancelled) {
+          setRescheduleBooking(data);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setBookingError(
+            error instanceof Error
+              ? error.message
+              : "We could not load the booking you want to reschedule.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingRescheduleBooking(false);
+        }
+      }
+    };
+
+    void loadBooking();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, bookingIdFromQuery, isAuthenticated]);
+
+  useEffect(() => {
+    if (!rescheduleBooking || !directory.length) return;
+
+    const professionalRecord =
+      typeof rescheduleBooking.professionalId === "object"
+        ? rescheduleBooking.professionalId
+        : null;
+    const professionalId =
+      professionalRecord?._id || professionalRecord?.id || rescheduleBooking.professionalId;
+    const matchedProfessional = directory.find(
+      (item) =>
+        item.backendId === professionalId ||
+        String(item.id) === String(professionalId) ||
+        item.name === professionalRecord?.name,
+    );
+    const scheduledDate = new Date(rescheduleBooking.scheduledAt);
+
+    if (rescheduleBooking.serviceId) {
+      setSelectedService(rescheduleBooking.serviceId);
+    }
+    if (matchedProfessional) {
+      setSelectedProfessional(matchedProfessional.id);
+    }
+    if (!Number.isNaN(scheduledDate.getTime())) {
+      setSelectedDate(scheduledDate);
+      setSelectedTime(formatMinutes(scheduledDate.getHours() * 60 + scheduledDate.getMinutes()));
+      setVisibleMonth(new Date(scheduledDate.getFullYear(), scheduledDate.getMonth(), 1));
+    }
+    setStep(3);
+  }, [directory, rescheduleBooking]);
 
   const professionalOptions = useMemo(() => {
     return directory.filter((item) => {
@@ -233,6 +318,35 @@ export default function BookingPage() {
     };
   }, [selectedPro?.backendId, visibleMonth]);
 
+  const refreshAvailability = async () => {
+    if (!selectedPro?.backendId) return;
+
+    const monthStart = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
+    const monthEnd = new Date(
+      visibleMonth.getFullYear(),
+      visibleMonth.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+    );
+
+    try {
+      setLoadingAvailability(true);
+      const response = await apiFetch(
+        `/api/professionals/${selectedPro.backendId}/availability?startDate=${encodeURIComponent(
+          monthStart.toISOString(),
+        )}&endDate=${encodeURIComponent(monthEnd.toISOString())}`,
+      );
+      const data = await parseJsonResponse<LiveAvailabilityResponse>(response);
+      setAvailabilityData(data);
+    } catch {
+      setAvailabilityData(null);
+    } finally {
+      setLoadingAvailability(false);
+    }
+  };
+
   const handleConfirmBooking = async () => {
     if (!selectedPro || !selectedDate || !selectedTime) return;
 
@@ -254,24 +368,32 @@ export default function BookingPage() {
       setBookingSuccess(null);
 
       const scheduledAt = combineDateAndTime(selectedDate, selectedTime);
-      const response = await apiFetch("/api/bookings", {
-        method: "POST",
-        body: JSON.stringify({
-          professionalId: selectedPro.backendId,
-          serviceId: selectedService,
-          scheduledAt: scheduledAt.toISOString(),
-        }),
-      });
+      const response = await apiFetch(
+        isRescheduleMode && bookingIdFromQuery
+          ? `/api/bookings/${bookingIdFromQuery}/reschedule`
+          : "/api/bookings",
+        {
+          method: isRescheduleMode && bookingIdFromQuery ? "PATCH" : "POST",
+          body: JSON.stringify({
+            professionalId: selectedPro.backendId,
+            serviceId: selectedService,
+            scheduledAt: scheduledAt.toISOString(),
+          }),
+        },
+      );
 
       const data = await parseJsonResponse<{
-        bookingId: string;
-        booking?: { scheduledAt?: string };
+        bookingId?: string;
+        message?: string;
+        booking?: { _id?: string; scheduledAt?: string };
+        _id?: string;
       }>(response);
 
       setBookingSuccess({
-        bookingId: data.bookingId,
+        bookingId: data.bookingId || data.booking?._id || bookingIdFromQuery,
         scheduledAt: data.booking?.scheduledAt || scheduledAt.toISOString(),
       });
+      await refreshAvailability();
     } catch (error) {
       setBookingError(
         error instanceof Error ? error.message : "We could not create the booking right now.",
@@ -437,7 +559,9 @@ export default function BookingPage() {
         ) : null}
         {step === 3 ? (
           <>
-            <h2 className="mb-3 text-[36px] font-bold text-[#2b2b2b]">Pick Date &amp; Time</h2>
+            <h2 className="mb-3 text-[36px] font-bold text-[#2b2b2b]">
+              {isRescheduleMode ? "Reschedule Date &amp; Time" : "Pick Date &amp; Time"}
+            </h2>
             <p className="mb-8 text-[16px] text-[#7e7e7e]">Choose a time that works for you.</p>
             <div className="grid gap-8 xl:grid-cols-[1.1fr_0.95fr]">
               <div className="rounded-[32px] bg-white p-6 shadow-[0_18px_45px_rgba(29,25,22,0.06)] sm:p-8">
@@ -609,9 +733,13 @@ export default function BookingPage() {
         ) : null}
         {step === 4 ? (
           <>
-            <h2 className="mb-3 text-[36px] font-bold text-[#2b2b2b]">Confirm Your Booking</h2>
+            <h2 className="mb-3 text-[36px] font-bold text-[#2b2b2b]">
+              {isRescheduleMode ? "Confirm Your Reschedule" : "Confirm Your Booking"}
+            </h2>
             <p className="mb-8 text-[16px] text-[#7e7e7e]">
-              Review your session details and confirm your appointment.
+              {isRescheduleMode
+                ? "Review the updated session details and confirm your new appointment time."
+                : "Review your session details and confirm your appointment."}
             </p>
             <div className="grid gap-8 lg:grid-cols-[1fr_0.85fr]">
               <div className="rounded-[32px] bg-white p-8 shadow-[0_18px_45px_rgba(29,25,22,0.06)]">
@@ -674,8 +802,9 @@ export default function BookingPage() {
               <div className="rounded-[32px] bg-white p-8 shadow-[0_18px_45px_rgba(29,25,22,0.06)]">
                 <h3 className="text-[28px] font-bold text-[#2b2b2b]">Ready to confirm?</h3>
                 <p className="mt-3 text-[15px] leading-7 text-[#7e7e7e]">
-                  We&apos;ll create your session on the live backend and surface it in your client
-                  dashboard right after confirmation.
+                  {isRescheduleMode
+                    ? "We&apos;ll update your session on the live backend and refresh it in your client dashboard right after confirmation."
+                    : "We&apos;ll create your session on the live backend and surface it in your client dashboard right after confirmation."}
                 </p>
 
                 {!isAuthenticated && !authLoading ? (
@@ -692,7 +821,9 @@ export default function BookingPage() {
 
                 {bookingSuccess ? (
                   <div className="mt-6 rounded-[24px] border border-[#d5efde] bg-[#f4fbf6] p-5 text-sm text-[#24543b]">
-                    <p className="font-semibold">Booking confirmed</p>
+                    <p className="font-semibold">
+                      {isRescheduleMode ? "Booking rescheduled" : "Booking confirmed"}
+                    </p>
                     <p className="mt-1">
                       Reference: {bookingSuccess.bookingId}
                     </p>
@@ -711,7 +842,13 @@ export default function BookingPage() {
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] px-6 py-4 text-sm font-semibold text-white disabled:opacity-50"
                   >
                     {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-                    {bookingSuccess ? "Booking Confirmed" : "Confirm Booking"}
+                    {bookingSuccess
+                      ? isRescheduleMode
+                        ? "Reschedule Confirmed"
+                        : "Booking Confirmed"
+                      : isRescheduleMode
+                        ? "Confirm Reschedule"
+                        : "Confirm Booking"}
                   </button>
                   <button
                     type="button"
@@ -739,7 +876,7 @@ export default function BookingPage() {
           <button
             type="button"
             onClick={() => setStep((current) => Math.max(1, current - 1))}
-            disabled={step === 1 || submitting}
+            disabled={step === 1 || submitting || loadingRescheduleBooking}
             className="rounded-full border border-[#2b2b2b] px-6 py-3 text-sm font-medium text-[#2b2b2b] disabled:opacity-40"
           >
             Back
@@ -749,6 +886,7 @@ export default function BookingPage() {
             onClick={() => setStep((current) => Math.min(4, current + 1))}
             disabled={
               submitting ||
+              loadingRescheduleBooking ||
               (step === 1 && !selectedService) ||
               (step === 2 && !selectedProfessional) ||
               (step === 3 && !canMoveToStepFour) ||
