@@ -26,14 +26,16 @@ const services = [
   {
     icon: Brain,
     title: "Mental Wellness",
-    description: "Professional therapy and counseling for your healing journey.",
+    description:
+      "Professional therapy and counseling for your healing journey.",
     image:
       "https://images.unsplash.com/photo-1493836512294-502baa1986e2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
   },
   {
     icon: Stethoscope,
     title: "Medical Consultation",
-    description: "Licensed medical experts available online when you need them.",
+    description:
+      "Licensed medical experts available online when you need them.",
     image:
       "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
   },
@@ -212,7 +214,10 @@ export function HomePageContent() {
         <div className="absolute top-0 right-0 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-[#f56969]/5 to-[#e6b9e6]/5 blur-3xl" />
         <div className="absolute bottom-0 left-0 h-[400px] w-[400px] rounded-full bg-gradient-to-tr from-[#f5912d]/5 to-[#ffdbff]/5 blur-3xl" />
         <div className="relative z-10 mx-auto grid max-w-[1440px] items-center gap-12 lg:grid-cols-2">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#f56969]/20 bg-gradient-to-r from-[#f5912d]/10 via-[#f56969]/10 to-[#e6b9e6]/10 px-4 py-2">
               <div className="h-2 w-2 animate-pulse rounded-full bg-gradient-to-r from-[#f5912d] to-[#f56969]" />
               <span className="text-sm font-medium text-[#f56969]">
@@ -228,12 +233,13 @@ export function HomePageContent() {
               Anytime, Anywhere
             </h1>
             <p className="mb-8 max-w-[560px] text-[18px] leading-[28px] text-[#7e7e7e]">
-              Book online sessions with licensed professionals for mental health,
-              medical consultation, legal guidance, and wellness support.
+              Book online sessions with licensed professionals for mental
+              health, medical consultation, legal guidance, and wellness
+              support.
             </p>
             <div className="mb-12 flex flex-col gap-4 sm:flex-row">
               <Button
-                href="/#contact"
+                href="/booking"
                 size="lg"
                 className="min-w-[210px] px-9 py-4 text-[16px] font-semibold shadow-[0_18px_40px_rgba(245,105,105,0.25)]"
                 icon={<ArrowRight className="h-5 w-5" />}
@@ -241,7 +247,7 @@ export function HomePageContent() {
                 Book a Session
               </Button>
               <Button
-                href="/#services"
+                href="/services"
                 variant="outline"
                 size="lg"
                 className="min-w-[210px] border-[#2b2b2b] bg-white/80 px-9 py-4 text-[16px] font-semibold backdrop-blur-sm hover:bg-[#2b2b2b] hover:text-white"
@@ -256,7 +262,11 @@ export function HomePageContent() {
             </div>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="relative">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="relative"
+          >
             <div className="overflow-hidden rounded-[32px] shadow-2xl">
               <img
                 src="https://images.unsplash.com/photo-1659353888906-adb3e0041693?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080"
@@ -286,7 +296,9 @@ export function HomePageContent() {
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-[#f5912d]/10 via-[#f56969]/10 to-[#e6b9e6]/10">
                 <stat.icon className="h-8 w-8 text-[#f56969]" />
               </div>
-              <p className="mb-2 text-4xl font-bold text-[#2b2b2b]">{stat.value}</p>
+              <p className="mb-2 text-4xl font-bold text-[#2b2b2b]">
+                {stat.value}
+              </p>
               <p className="text-sm text-[#7e7e7e]">{stat.label}</p>
             </div>
           ))}
@@ -295,20 +307,35 @@ export function HomePageContent() {
 
       <section id="services" className="bg-[#f7f5f4] px-6 py-20 lg:px-[120px]">
         <div className="mx-auto max-w-[1440px]">
-          <SectionHeading eyebrow="Our Services" title="Comprehensive Care for" highlight="Your Wellness" />
+          <SectionHeading
+            eyebrow="Our Services"
+            title="Comprehensive Care for"
+            highlight="Your Wellness"
+          />
           <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-4">
             {services.map((service) => (
-              <div key={service.title} className="group overflow-hidden rounded-[24px] bg-white shadow-lg transition-all hover:-translate-y-1 hover:shadow-2xl">
+              <div
+                key={service.title}
+                className="group overflow-hidden rounded-[24px] bg-white shadow-lg transition-all hover:-translate-y-1 hover:shadow-2xl"
+              >
                 <div className="relative h-[240px] overflow-hidden">
-                  <img src={service.image} alt={service.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                  <img
+                    src={service.image}
+                    alt={service.title}
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60" />
                   <div className="absolute left-6 top-6 flex h-14 w-14 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm">
                     <service.icon className="h-7 w-7 text-[#f56969]" />
                   </div>
                 </div>
                 <div className="p-8">
-                  <h3 className="mb-3 text-[24px] font-bold text-[#2b2b2b]">{service.title}</h3>
-                  <p className="mb-6 text-[16px] leading-6 text-[#7e7e7e]">{service.description}</p>
+                  <h3 className="mb-3 text-[24px] font-bold text-[#2b2b2b]">
+                    {service.title}
+                  </h3>
+                  <p className="mb-6 text-[16px] leading-6 text-[#7e7e7e]">
+                    {service.description}
+                  </p>
                   <Link
                     href={`/services/${service.title.toLowerCase().replace(/\s+/g, "-")}`}
                     className="inline-flex items-center gap-2 text-[15px] font-medium text-[#f56969] transition-all hover:gap-3"
@@ -325,7 +352,11 @@ export function HomePageContent() {
 
       <section id="about" className="bg-white px-6 py-20 lg:px-[120px]">
         <div className="mx-auto max-w-[1440px]">
-          <SectionHeading eyebrow="Your Journey" title="How It" highlight="Works" />
+          <SectionHeading
+            eyebrow="Your Journey"
+            title="How It"
+            highlight="Works"
+          />
           <div className="grid items-center gap-16 lg:grid-cols-2">
             <div className="space-y-6">
               {journey.map((item, index) => (
@@ -419,16 +450,28 @@ export function HomePageContent() {
 
       <ProfessionalsScrollSection />
 
-      <section id="professionals" className="bg-[#f7f5f4] px-6 py-20 lg:px-[120px]">
+      <section
+        id="professionals"
+        className="bg-[#f7f5f4] px-6 py-20 lg:px-[120px]"
+      >
         <div className="mx-auto max-w-[1440px]">
-          <SectionHeading eyebrow="Why Choose Us" title="Your Trust is" highlight="Our Priority" />
+          <SectionHeading
+            eyebrow="Why Choose Us"
+            title="Your Trust is"
+            highlight="Our Priority"
+          />
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
             {whyChooseUs.map((feature) => (
-              <div key={feature.title} className="rounded-[24px] bg-white p-8 transition-all hover:shadow-lg">
+              <div
+                key={feature.title}
+                className="rounded-[24px] bg-white p-8 transition-all hover:shadow-lg"
+              >
                 <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-[#f5912d]/10 via-[#f56969]/10 to-[#e6b9e6]/10">
                   <feature.icon className="h-7 w-7 text-[#f56969]" />
                 </div>
-                <h3 className="mb-3 text-[20px] font-bold text-[#2b2b2b]">{feature.title}</h3>
+                <h3 className="mb-3 text-[20px] font-bold text-[#2b2b2b]">
+                  {feature.title}
+                </h3>
                 <p className="text-[15px] leading-6 text-[#7e7e7e]">
                   {feature.description}
                 </p>
@@ -440,13 +483,23 @@ export function HomePageContent() {
 
       <section className="bg-white px-6 py-20 lg:px-[120px]">
         <div className="mx-auto max-w-[1440px]">
-          <SectionHeading eyebrow="Testimonials" title="What Our Clients" highlight="Say" />
+          <SectionHeading
+            eyebrow="Testimonials"
+            title="What Our Clients"
+            highlight="Say"
+          />
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {testimonials.map((testimonial, index) => (
-              <div key={testimonial.name} className="rounded-[24px] bg-gradient-to-br from-[#f7f5f4] to-white p-6 transition-all hover:shadow-lg">
+              <div
+                key={testimonial.name}
+                className="rounded-[24px] bg-gradient-to-br from-[#f7f5f4] to-white p-6 transition-all hover:shadow-lg"
+              >
                 <div className="mb-4 flex items-center gap-1">
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={`${index}-${i}`} className="h-4 w-4 fill-[#f5912d] text-[#f5912d]" />
+                    <Star
+                      key={`${index}-${i}`}
+                      className="h-4 w-4 fill-[#f5912d] text-[#f5912d]"
+                    />
                   ))}
                 </div>
                 <p className="mb-6 text-[14px] leading-[22px] text-[#7e7e7e]">
@@ -455,9 +508,7 @@ export function HomePageContent() {
                 <p className="text-[16px] font-bold text-[#2b2b2b]">
                   {testimonial.name}
                 </p>
-                <p className="text-[13px] text-[#f56969]">
-                  {testimonial.city}
-                </p>
+                <p className="text-[13px] text-[#f56969]">{testimonial.city}</p>
               </div>
             ))}
           </div>
@@ -468,7 +519,8 @@ export function HomePageContent() {
         <div className="mx-auto max-w-[1440px]">
           <div className="mb-12 text-center">
             <h2 className="text-[45px] font-bold leading-[48px] tracking-[-1.8px] text-[#2b2b2b]">
-              We&apos;re here to <span className="font-light text-[#f56969]">help</span>
+              We&apos;re here to{" "}
+              <span className="font-light text-[#f56969]">help</span>
             </h2>
           </div>
           <div className="mx-auto max-w-[900px] space-y-4">
@@ -495,7 +547,10 @@ export function HomePageContent() {
                 </button>
                 <motion.div
                   initial={false}
-                  animate={{ height: openFaq === index ? "auto" : 0, opacity: openFaq === index ? 1 : 0 }}
+                  animate={{
+                    height: openFaq === index ? "auto" : 0,
+                    opacity: openFaq === index ? 1 : 0,
+                  }}
                   transition={{ duration: 0.3 }}
                   className="overflow-hidden"
                 >
@@ -509,8 +564,13 @@ export function HomePageContent() {
             ))}
           </div>
           <div className="mt-12 text-center">
-            <p className="mb-4 text-[16px] text-[#7e7e7e]">Still have questions?</p>
-            <Link href="/#contact" className="inline-flex items-center gap-2 text-[16px] font-medium text-[#f56969] transition-all hover:gap-3">
+            <p className="mb-4 text-[16px] text-[#7e7e7e]">
+              Still have questions?
+            </p>
+            <Link
+              href="/#contact"
+              className="inline-flex items-center gap-2 text-[16px] font-medium text-[#f56969] transition-all hover:gap-3"
+            >
               Contact our support team
               <ArrowRight className="h-5 w-5" />
             </Link>
@@ -523,17 +583,20 @@ export function HomePageContent() {
           <div
             className="absolute inset-0"
             style={{
-              backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)",
+              backgroundImage:
+                "radial-gradient(circle, white 1px, transparent 1px)",
               backgroundSize: "40px 40px",
             }}
           />
         </div>
         <div className="relative z-10 mx-auto max-w-[1440px] text-center">
           <h2 className="mb-6 text-[42px] font-bold leading-tight text-white lg:text-[48px]">
-            Ready to Start Your <span className="font-light">Wellness Journey?</span>
+            Ready to Start Your{" "}
+            <span className="font-light">Wellness Journey?</span>
           </h2>
           <p className="mx-auto mb-10 max-w-[600px] text-[18px] leading-[28px] text-white/90">
-            Join thousands of people who have found support, healing, and guidance through our platform.
+            Join thousands of people who have found support, healing, and
+            guidance through our platform.
           </p>
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Button
@@ -626,7 +689,10 @@ function JourneyIntakeScreen() {
         </h3>
         <div className="space-y-4">
           {fields.map((field) => (
-            <div key={field} className="grid grid-cols-[78px_1fr] items-center gap-3">
+            <div
+              key={field}
+              className="grid grid-cols-[78px_1fr] items-center gap-3"
+            >
               <span className="text-[11px] text-[#2b2b2b]">{field}</span>
               <div
                 className={`rounded-[4px] bg-white ${
@@ -737,7 +803,9 @@ function JourneyDashboardScreen() {
           </div>
 
           <div>
-            <p className="mb-3 text-[13px] font-semibold text-[#ff6b6b]">Events</p>
+            <p className="mb-3 text-[13px] font-semibold text-[#ff6b6b]">
+              Events
+            </p>
             <DashboardField label="Dec 25, 2025" />
           </div>
         </div>
@@ -761,13 +829,7 @@ function DashboardField({ label }: { label: string }) {
   );
 }
 
-function ControlButton({
-  label,
-  dark,
-}: {
-  label: string;
-  dark?: boolean;
-}) {
+function ControlButton({ label, dark }: { label: string; dark?: boolean }) {
   return (
     <button
       type="button"
