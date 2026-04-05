@@ -20,6 +20,7 @@ import {
   Lock,
 } from "lucide-react";
 import { ProfessionalsScrollSection } from "./ProfessionalsScrollSection";
+import { Button } from "../ui/Button";
 
 const services = [
   {
@@ -231,13 +232,22 @@ export function HomePageContent() {
               medical consultation, legal guidance, and wellness support.
             </p>
             <div className="mb-12 flex flex-col gap-4 sm:flex-row">
-              <Link href="/#contact" className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] px-8 py-4 font-medium text-white shadow-lg">
+              <Button
+                href="/#contact"
+                size="lg"
+                className="min-w-[210px] px-9 py-4 text-[16px] font-semibold shadow-[0_18px_40px_rgba(245,105,105,0.25)]"
+                icon={<ArrowRight className="h-5 w-5" />}
+              >
                 Book a Session
-                <ArrowRight className="h-5 w-5" />
-              </Link>
-              <Link href="/#services" className="rounded-full border-2 border-[#2b2b2b] px-8 py-4 font-medium text-[#2b2b2b] transition-all hover:bg-[#2b2b2b] hover:text-white">
+              </Button>
+              <Button
+                href="/#services"
+                variant="outline"
+                size="lg"
+                className="min-w-[210px] border-[#2b2b2b] bg-white/80 px-9 py-4 text-[16px] font-semibold backdrop-blur-sm hover:bg-[#2b2b2b] hover:text-white"
+              >
                 Explore Services
-              </Link>
+              </Button>
             </div>
             <div className="flex flex-wrap items-center gap-6 border-t border-[#e6b9e6]/30 pt-6">
               <TrustItem icon={Shield} label="HIPAA Compliant" />
@@ -299,7 +309,10 @@ export function HomePageContent() {
                 <div className="p-8">
                   <h3 className="mb-3 text-[24px] font-bold text-[#2b2b2b]">{service.title}</h3>
                   <p className="mb-6 text-[16px] leading-6 text-[#7e7e7e]">{service.description}</p>
-                  <Link href="/#contact" className="inline-flex items-center gap-2 text-[15px] font-medium text-[#f56969] transition-all hover:gap-3">
+                  <Link
+                    href={`/services/${service.title.toLowerCase().replace(/\s+/g, "-")}`}
+                    className="inline-flex items-center gap-2 text-[15px] font-medium text-[#f56969] transition-all hover:gap-3"
+                  >
                     Learn More
                     <ArrowRight className="h-4 w-4" />
                   </Link>
@@ -388,12 +401,12 @@ export function HomePageContent() {
                           <DetailItem label="7 Years Experience" />
                           <DetailItem label="Master Degree in Law" />
                         </div>
-                        <button
-                          type="button"
-                          className="w-full rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] py-3 text-[12px] font-medium text-white"
+                        <Link
+                          href="/booking"
+                          className="block w-full rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] py-3 text-center text-[12px] font-medium text-white"
                         >
                           Book Session
-                        </button>
+                        </Link>
                       </div>
                     </div>
                   )}
@@ -523,13 +536,22 @@ export function HomePageContent() {
             Join thousands of people who have found support, healing, and guidance through our platform.
           </p>
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Link href="/#contact" className="inline-flex items-center gap-2 rounded-full bg-white px-8 py-4 font-medium text-[#f56969] shadow-lg">
+            <Button
+              href="/#contact"
+              size="lg"
+              className="min-w-[230px] bg-white px-9 py-4 text-[16px] font-semibold text-[#f56969] shadow-[0_18px_35px_rgba(0,0,0,0.18)] hover:text-[#f56969]"
+              icon={<ArrowRight className="h-5 w-5" />}
+            >
               Book Your First Session
-              <ArrowRight className="h-5 w-5" />
-            </Link>
-            <Link href="/#contact" className="rounded-full border-2 border-white px-8 py-4 font-medium text-white transition-all hover:bg-white/10">
+            </Button>
+            <Button
+              href="/#contact"
+              variant="outline"
+              size="lg"
+              className="min-w-[190px] border-white px-9 py-4 text-[16px] font-semibold text-white hover:bg-white/10 hover:text-white"
+            >
               Contact Us
-            </Link>
+            </Button>
           </div>
         </div>
       </section>
@@ -614,12 +636,12 @@ function JourneyIntakeScreen() {
             </div>
           ))}
         </div>
-        <button
-          type="button"
-          className="mx-auto mt-8 block rounded-[10px] bg-[#ff6b6b] px-10 py-2.5 text-[12px] font-medium text-white"
+        <Link
+          href="/#contact"
+          className="mx-auto mt-8 block w-fit rounded-[10px] bg-[#ff6b6b] px-10 py-2.5 text-[12px] font-medium text-white"
         >
           Submit
-        </button>
+        </Link>
       </div>
     </div>
   );
@@ -720,12 +742,12 @@ function JourneyDashboardScreen() {
           </div>
         </div>
 
-        <button
-          type="button"
-          className="mx-auto mt-8 block rounded-[10px] bg-[#ff6b6b] px-10 py-2.5 text-[12px] font-medium text-white"
+        <Link
+          href="/booking"
+          className="mx-auto mt-8 block w-fit rounded-[10px] bg-[#ff6b6b] px-10 py-2.5 text-[12px] font-medium text-white"
         >
           Book Now
-        </button>
+        </Link>
       </div>
     </div>
   );

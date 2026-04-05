@@ -24,6 +24,10 @@ export function ProfessionalsPageContent({
   const [usingLiveData, setUsingLiveData] = useState(false);
 
   useEffect(() => {
+    setCategory(initialCategory);
+  }, [initialCategory]);
+
+  useEffect(() => {
     let cancelled = false;
 
     const loadProfessionals = async () => {
