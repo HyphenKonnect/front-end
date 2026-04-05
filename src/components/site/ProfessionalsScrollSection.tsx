@@ -1,15 +1,19 @@
 "use client";
 
+import Link from "next/link";
 import { motion } from "framer-motion";
-import { Brain, CheckCircle, Scale, Stethoscope } from "lucide-react";
+import { ArrowUpRight, Brain, CheckCircle, Scale, Stethoscope } from "lucide-react";
+import { professionals } from "./data";
 
 const professionalsScroll = [
   {
-    images: [
-      "https://images.unsplash.com/photo-1636342686573-2dd5b47d5ff0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-      "https://images.unsplash.com/photo-1714976695024-55a90b113f68?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-      "https://images.unsplash.com/photo-1659353219716-699803846194?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-      "https://images.unsplash.com/photo-1610547315412-d8812f60cf76?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+    people: [
+      "Sritha Nandiraj",
+      "Aashritha Akula",
+      "Titir Dewan",
+      "Shreya Aila",
+      "Dr. Rucha Chhajed",
+      "Sowmiya Bhas",
     ],
     service: {
       icon: Brain,
@@ -25,11 +29,10 @@ const professionalsScroll = [
     },
   },
   {
-    images: [
-      "https://images.unsplash.com/photo-1683348758606-860c720fda9a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-      "https://images.unsplash.com/photo-1615177393579-5fc7431152c9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-      "https://images.unsplash.com/photo-1659353888075-e6c1615fc0a1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-      "https://images.unsplash.com/photo-1659352790848-b6455e5a2129?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+    people: [
+      "Madhurika Jalakam",
+      "Dr. M Mamatha Yadav",
+      "Dr. Mounish Reddy",
     ],
     service: {
       icon: Stethoscope,
@@ -45,11 +48,13 @@ const professionalsScroll = [
     },
   },
   {
-    images: [
-      "https://images.unsplash.com/photo-1743017524261-f026c51acf7d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-      "https://images.unsplash.com/photo-1659355894117-0ae6f8f28d0b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-      "https://images.unsplash.com/photo-1773212902295-14c35ee22235?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-      "https://images.unsplash.com/photo-1750698545009-679820502908?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+    people: [
+      "Sreshta Rao Madhavaram",
+      "Anuraag Badeti",
+      "B. Vishnu Rao",
+      "Ashima Sood",
+      "Muthyala Preetham Shankar",
+      "Vidisha Bhate",
     ],
     service: {
       icon: Scale,
@@ -133,19 +138,50 @@ export function ProfessionalsScrollSection() {
 
               <div className={index % 2 === 1 ? "md:order-1" : ""}>
                 <div className="scroll-container overflow-hidden">
-                  <div className="scroll-left flex gap-4">
-                    {[...item.images, ...item.images].map((img, imgIndex) => (
-                      <div
-                        key={`${item.service.title}-${imgIndex}`}
-                        className="h-[250px] w-[200px] flex-shrink-0 overflow-hidden rounded-[20px] shadow-lg"
-                      >
-                        <img
-                          src={img}
-                          alt={`Professional ${imgIndex + 1}`}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                    ))}
+                  <div
+                    className={`flex gap-4 ${
+                      index % 2 === 1
+                        ? "team-scroll-track-reverse"
+                        : "team-scroll-track"
+                    }`}
+                  >
+                    {[...item.people, ...item.people].map((name, personIndex) => {
+                      const professional = professionals.find(
+                        (entry) => entry.name === name,
+                      );
+
+                      if (!professional) return null;
+
+                      return (
+                        <article
+                          key={`${item.service.title}-${personIndex}-${name}`}
+                          className="group relative h-[280px] w-[220px] flex-shrink-0 overflow-hidden rounded-[24px] shadow-lg"
+                        >
+                          <img
+                            src={professional.image}
+                            alt={professional.name}
+                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#201b26] via-[#201b26]/20 to-transparent" />
+                          <div className="absolute inset-x-0 bottom-0 p-4">
+                            <div className="rounded-[18px] bg-white/90 p-4 backdrop-blur-sm">
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="text-[15px] font-semibold leading-5 text-[#2b2b2b]">
+                                  {professional.name}
+                                </p>
+                                <Link
+                                  href={`/professionals/${professional.slug}`}
+                                  aria-label={`View ${professional.name} profile`}
+                                  className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] text-white shadow-md"
+                                >
+                                  <ArrowUpRight className="h-4 w-4" />
+                                </Link>
+                              </div>
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

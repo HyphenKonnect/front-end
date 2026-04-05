@@ -1,10 +1,37 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Search, Star } from "lucide-react";
 import { professionalCategories, professionals } from "./data";
 import { GradientCta, PageHero, SectionTitle } from "./page-primitives";
+import { apiFetch } from "../../lib/api";
+
+type RemoteProfessional = {
+  _id?: string;
+  name?: string;
+  specialties?: string[];
+  qualifications?: string[];
+  profileImage?: string | null;
+  averageRating?: number;
+  totalReviews?: number;
+  yearsOfExperience?: number;
+  sessionPrice?: number;
+};
+
+type DirectoryProfessional = {
+  id: string | number;
+  slug?: string;
+  name: string;
+  specialty: string;
+  category: string;
+  image: string;
+  rating: number;
+  reviews: number;
+  experience: string;
+  rate: string;
+  available: boolean;
+};
 
 export function ProfessionalsPageContent({
   initialCategory = "all",
@@ -13,9 +40,61 @@ export function ProfessionalsPageContent({
 }) {
   const [category, setCategory] = useState(initialCategory);
   const [searchTerm, setSearchTerm] = useState("");
+  const [remoteProfessionals, setRemoteProfessionals] = useState<
+    DirectoryProfessional[]
+  >(professionals);
+  const [usingLiveData, setUsingLiveData] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadProfessionals = async () => {
+      try {
+        const response = await apiFetch("/api/professionals");
+        if (!response.ok) return;
+
+        const data = await response.json();
+        if (!Array.isArray(data) || cancelled) return;
+
+        const mapped = (data as RemoteProfessional[]).map((item, index) => ({
+          id: item._id ?? index,
+          slug: undefined,
+          name: item.name ?? "Professional",
+          specialty:
+            item.specialties?.[0] ??
+            item.qualifications?.[0] ??
+            "Specialist",
+          category: mapProfessionalCategory(item.specialties),
+          image:
+            item.profileImage ||
+            "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=300",
+          rating: item.averageRating ?? 0,
+          reviews: item.totalReviews ?? 0,
+          experience: item.yearsOfExperience
+            ? `${item.yearsOfExperience} years`
+            : "Experience available",
+          rate: item.sessionPrice
+            ? `₹${item.sessionPrice}/session`
+            : "Contact for pricing",
+          available: true,
+        }));
+
+        setRemoteProfessionals(mapped);
+        setUsingLiveData(true);
+      } catch {
+        // Keep static fallback data if live fetch fails or requires auth.
+      }
+    };
+
+    loadProfessionals();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
-    return professionals.filter((professional) => {
+    return remoteProfessionals.filter((professional) => {
       const matchesCategory =
         category === "all" || professional.category === category;
       const matchesSearch =
@@ -23,7 +102,7 @@ export function ProfessionalsPageContent({
         professional.specialty.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesCategory && matchesSearch;
     });
-  }, [category, searchTerm]);
+  }, [category, remoteProfessionals, searchTerm]);
 
   return (
     <div className="pt-20">
@@ -64,6 +143,12 @@ export function ProfessionalsPageContent({
             </div>
           </div>
 
+          <p className="mb-6 text-sm text-[#7e7e7e]">
+            {usingLiveData
+              ? "Showing live professionals from Railway."
+              : "Showing local fallback data until the live professionals endpoint is accessible."}
+          </p>
+
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {filtered.map((professional) => (
               <div key={professional.id} className="overflow-hidden rounded-[24px] bg-[#f7f5f4] shadow-sm">
@@ -78,16 +163,28 @@ export function ProfessionalsPageContent({
                   <p className="mb-3 text-[15px] font-medium text-[#f56969]">{professional.specialty}</p>
                   <div className="mb-4 flex items-center gap-4 text-[14px] text-[#7e7e7e]">
                     <span>{professional.experience}</span>
-                    <span className="inline-flex items-center gap-1">
-                      <Star className="h-4 w-4 fill-[#f5912d] text-[#f5912d]" />
-                      {professional.rating} ({professional.reviews})
-                    </span>
+                    {professional.rating > 0 && professional.reviews > 0 ? (
+                      <span className="inline-flex items-center gap-1">
+                        <Star className="h-4 w-4 fill-[#f5912d] text-[#f5912d]" />
+                        {professional.rating} ({professional.reviews})
+                      </span>
+                    ) : null}
                   </div>
                   <div className="flex items-center justify-between border-t border-[#ead9e8] pt-4">
                     <span className="text-[18px] font-bold text-[#2b2b2b]">{professional.rate}</span>
-                    <Link href="/booking" className="rounded-full bg-[#2b2b2b] px-5 py-2.5 text-sm font-medium text-white">
-                      Book Now
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      {professional.slug ? (
+                        <Link
+                          href={`/professionals/${professional.slug}`}
+                          className="rounded-full border border-[#2b2b2b] px-4 py-2.5 text-sm font-medium text-[#2b2b2b]"
+                        >
+                          View Profile
+                        </Link>
+                      ) : null}
+                      <Link href="/booking" className="rounded-full bg-[#2b2b2b] px-5 py-2.5 text-sm font-medium text-white">
+                        Book Now
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -126,4 +223,29 @@ export function ProfessionalsPageContent({
       />
     </div>
   );
+}
+
+function mapProfessionalCategory(specialties?: string[]) {
+  const content = (specialties || []).join(" ").toLowerCase();
+  if (
+    content.includes("therapy") ||
+    content.includes("psych") ||
+    content.includes("counsel")
+  ) {
+    return "therapist";
+  }
+  if (
+    content.includes("doctor") ||
+    content.includes("medicine") ||
+    content.includes("medical")
+  ) {
+    return "doctor";
+  }
+  if (content.includes("legal") || content.includes("law")) {
+    return "legal";
+  }
+  if (content.includes("wellness") || content.includes("nutrition")) {
+    return "wellness";
+  }
+  return "all";
 }

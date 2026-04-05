@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 const companyLinks = [
@@ -24,27 +25,29 @@ const professionalLinks = [
 
 const quickLinks = [
   { label: "Book a Session", href: "/booking" },
-  { label: "Client Portal", href: "/resources" },
-  { label: "Professional Portal", href: "/professionals" },
+  { label: "Client Portal", href: "/dashboard/client" },
+  { label: "Professional Portal", href: "/dashboard/professional" },
+  { label: "Admin Portal", href: "/dashboard/admin" },
   { label: "FAQ", href: "/resources" },
 ];
 
 export function Footer() {
   return (
-    <footer id="contact" className="relative bg-[#2b2b2b] px-6 py-16 text-white lg:px-[120px]">
+    <footer
+      id="contact"
+      className="relative bg-[#2b2b2b] px-6 py-16 text-white lg:px-[120px]"
+    >
       <div className="mx-auto max-w-[1440px]">
         <div className="mb-12 grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-5">
           <div>
-            <Link href="/" className="mb-6 inline-flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-lg font-bold text-white ring-1 ring-white/15">
-                H
-              </div>
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#f86c6b]">
-                  The Hyphen
-                </p>
-                <p className="text-lg font-bold text-white">Konnect</p>
-              </div>
+            <Link href="/" className="mb-6 inline-flex items-center">
+              <Image
+                src="/brand-logo.png"
+                alt="The Hyphen Konnect"
+                width={174}
+                height={112}
+                className="h-auto w-[108px]"
+              />
             </Link>
             <p className="text-sm leading-[22px] text-white/70">
               Your holistic wellness platform connecting you with expert
@@ -63,8 +66,8 @@ export function Footer() {
         <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
           <div className="flex flex-col items-center gap-4 sm:flex-row">
             <p className="text-sm text-white/60">
-              © {new Date().getFullYear()} The Hyphen Konnect. All rights
-              reserved.
+              Copyright {new Date().getFullYear()} The Hyphen Konnect. All
+              rights reserved.
             </p>
             <div className="flex items-center gap-4 text-sm">
               <Link
@@ -73,7 +76,7 @@ export function Footer() {
               >
                 Privacy Policy
               </Link>
-              <span className="text-white/30">•</span>
+              <span className="text-white/30">|</span>
               <Link
                 href="/terms"
                 className="text-white/60 transition-colors hover:text-[#f56969]"
@@ -123,7 +126,11 @@ function FooterColumn({
 
 function SocialIcon() {
   return (
-    <a href="#" className="transition-colors hover:text-[#f56969]" aria-label="Social link">
+    <a
+      href="#"
+      className="transition-colors hover:text-[#f56969]"
+      aria-label="Social link"
+    >
       <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="10" />
       </svg>

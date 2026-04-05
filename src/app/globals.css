@@ -23,7 +23,19 @@ body {
   animation: marquee-left 28s linear infinite;
 }
 
-.scroll-container:hover .scroll-left {
+.team-scroll-track {
+  width: max-content;
+  animation: team-marquee 34s linear infinite;
+}
+
+.team-scroll-track-reverse {
+  width: max-content;
+  animation: team-marquee-reverse 34s linear infinite;
+}
+
+.scroll-container:hover .scroll-left,
+.scroll-container:hover .team-scroll-track,
+.scroll-container:hover .team-scroll-track-reverse {
   animation-play-state: paused;
 }
 
@@ -34,5 +46,25 @@ body {
 
   100% {
     transform: translateX(-50%);
+  }
+}
+
+@keyframes team-marquee {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(calc(-50% - 0.5rem));
+  }
+}
+
+@keyframes team-marquee-reverse {
+  0% {
+    transform: translateX(calc(-50% - 0.5rem));
+  }
+
+  100% {
+    transform: translateX(0);
   }
 }

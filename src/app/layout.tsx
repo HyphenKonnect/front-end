@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { AuthProvider } from "../components/auth/AuthProvider";
 import { Footer } from "../components/site/Footer";
 import { Navigation } from "../components/site/Navigation";
 export const viewport: Viewport = {
@@ -40,9 +41,11 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body className="antialiased bg-white text-[#2b2b2b]">
-        <Navigation />
-        <main>{children}</main>
-        <Footer />
+        <AuthProvider>
+          <Navigation />
+          <main>{children}</main>
+          <Footer />
+        </AuthProvider>
       </body>
     </html>
   );

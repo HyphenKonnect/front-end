@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { motion } from "framer-motion";
@@ -7,7 +8,6 @@ import {
   ArrowRight,
   Brain,
   CheckCircle,
-  ChevronDown,
   Clock,
   Heart,
   Shield,
@@ -28,28 +28,28 @@ const services = [
     title: "Mental Wellness",
     description: "Professional therapy and counseling for your healing journey.",
     image:
-      "https://images.unsplash.com/photo-1714976695024-55a90b113f68?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+      "https://images.unsplash.com/photo-1493836512294-502baa1986e2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
   },
   {
     icon: Stethoscope,
     title: "Medical Consultation",
     description: "Licensed medical experts available online when you need them.",
     image:
-      "https://images.unsplash.com/photo-1615177393579-5fc7431152c9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+      "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
   },
   {
     icon: Scale,
     title: "Legal Guidance",
     description: "Qualified legal professionals for advice and next steps.",
     image:
-      "https://images.unsplash.com/photo-1743017524261-f026c51acf7d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+      "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
   },
   {
     icon: Heart,
     title: "Wellness Programs",
     description: "Holistic programs that support mind, body, and routine.",
     image:
-      "https://images.unsplash.com/photo-1773212902295-14c35ee22235?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+      "https://images.unsplash.com/photo-1506126613408-eca07ce68773?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
   },
 ];
 
@@ -61,45 +61,150 @@ const stats = [
 ];
 
 const journey = [
-  { step: "1", title: "Tell us what you're going through", bg: "bg-[#bfd4ee]" },
+  {
+    step: "1",
+    title: "Tell us what you're going through",
+    mockup: "intake",
+  },
   {
     step: "2",
     title: "Get matched with the right professionals",
-    bg: "bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6]",
+    mockup: null,
   },
-  { step: "3", title: "Start your sessions online", bg: "bg-[#bfd4ee]" },
+  {
+    step: "3",
+    title: "Start your sessions online",
+    mockup: "video",
+  },
   {
     step: "4",
     title: "Stay supported through your dashboard",
-    bg: "bg-[#bfd4ee]",
+    mockup: "dashboard",
   },
 ];
 
 const whyChooseUs = [
-  { icon: Shield, title: "HIPAA Compliant & Secure" },
-  { icon: Award, title: "Verified Professionals" },
-  { icon: Clock, title: "Available 24/7" },
-  { icon: TrendingUp, title: "95% Success Rate" },
-  { icon: Phone, title: "Instant Support" },
-  { icon: Lock, title: "100% Confidential" },
+  {
+    icon: Shield,
+    title: "Privacy-First Platform",
+    description:
+      "Your personal information, requests, and conversations are handled with confidentiality and care.",
+  },
+  {
+    icon: Award,
+    title: "Verified Experts",
+    description:
+      "We work with professionals whose backgrounds, credentials, and areas of practice are reviewed before onboarding.",
+  },
+  {
+    icon: Clock,
+    title: "Flexible Online Access",
+    description:
+      "Sessions are online, easy to schedule, and designed to reduce the stress of travel, waiting rooms, and coordination.",
+  },
+  {
+    icon: TrendingUp,
+    title: "Thoughtful Matching",
+    description:
+      "We focus on connecting people with the right kind of support instead of leaving them to figure everything out alone.",
+  },
+  {
+    icon: Phone,
+    title: "Responsive Support Team",
+    description:
+      "Our customer support team stays available around the clock to guide users, even though professionals are not 24x7.",
+  },
+  {
+    icon: Lock,
+    title: "Comfort and Trust",
+    description:
+      "From first contact to follow-up, the experience is built to feel safe, respectful, and human-centered.",
+  },
 ];
 
 const testimonials = [
-  "The Hyphen Konnect transformed my mental health journey.",
-  "Getting legal guidance was never this convenient.",
-  "The medical consultation feature is a game-changer.",
-  "The wellness programs helped me build healthier habits.",
+  {
+    quote:
+      "I was able to find a therapist who really understood trauma recovery, and the whole booking process felt calm and private.",
+    name: "Ananya Sharma",
+    city: "Bengaluru",
+  },
+  {
+    quote:
+      "The legal consultation gave me clarity at a time when I felt completely stuck. It was practical, kind, and easy to access online.",
+    name: "Rohan Mehta",
+    city: "Mumbai",
+  },
+  {
+    quote:
+      "Being able to speak with a doctor remotely saved me time and stress, especially while managing things across time zones.",
+    name: "Priya Nair",
+    city: "Hyderabad",
+  },
+  {
+    quote:
+      "The wellness support helped me rebuild my routine after burnout. The experience felt personal rather than transactional.",
+    name: "Karthik Iyer",
+    city: "Dubai",
+  },
 ];
 
 const faqs = [
-  "How do I book my first session?",
-  "Are sessions really confidential?",
-  "What if I need to cancel or reschedule?",
-  "Do you accept insurance?",
+  {
+    question: "What is Hyphen Konnect and how can it help me?",
+    answer:
+      "Hyphen Konnect is a support and connection platform designed to help you easily find trusted mental health, medical, legal, and wellness services online. We understand that seeking help can feel confusing or overwhelming, so we simplify the process for you. Our team listens carefully to your needs and connects you with the right professionals. Our goal is to make quality support accessible, comfortable, and stress-free.",
+  },
+  {
+    question: "What types of support can I access through Hyphen Konnect?",
+    answer:
+      "Through Hyphen Konnect, you can access a wide range of online services including mental health counseling, medical guidance, legal consultations, and wellness coaching. All professionals in our network are verified and experienced in their respective fields. We carefully match you with experts based on your concerns and preferences. This ensures you receive personalized and reliable care from the very beginning.",
+  },
+  {
+    question: "Is my personal information kept confidential?",
+    answer:
+      "Absolutely. Your privacy and confidentiality are extremely important to us. All personal information you share is protected using secure systems and strict data policies. We only use your details to connect you with appropriate professionals and never share them without your consent. You can feel safe knowing your journey with us is handled with complete discretion.",
+  },
+  {
+    question: "Do you provide direct medical treatment or legal advice?",
+    answer:
+      "Hyphen Konnect does not replace licensed doctors, therapists, or legal professionals. Instead, we act as a bridge that connects you with qualified experts who can provide proper advice and treatment online. We carefully verify all professionals in our network before onboarding them. This ensures you always receive guidance from trained and certified practitioners.",
+  },
+  {
+    question: "Can I choose my own therapist, doctor, or legal expert?",
+    answer:
+      "Yes, you have complete freedom to choose the professional you feel most comfortable with. You can browse profiles, review areas of expertise, and select based on your specific needs and preferences. We believe that the right connection makes a big difference in your healing and support journey. Our team is also available to assist you in making the best choice.",
+  },
+  {
+    question: "Are consultations conducted online?",
+    answer:
+      "Yes, all consultations and guidance sessions are conducted online for your convenience and privacy. This allows you to access quality support from the comfort of your home, no matter where you are located. Our online platforms are secure and easy to use. This also helps reduce travel time, waiting periods, and unnecessary stress.",
+  },
+  {
+    question: "How quickly will someone contact me after I submit a request?",
+    answer:
+      "Once you submit your request, our support team carefully reviews your information and typically responds within 24 hours. We take the time to understand your concerns before connecting you with the right professional. In urgent cases, we try our best to respond even faster. Our priority is to ensure you receive timely and appropriate guidance.",
+  },
+  {
+    question: "Is Hyphen Konnect suitable for families and caregivers?",
+    answer:
+      "Yes, Hyphen Konnect supports not only individuals but also families and caregivers who are seeking guidance and assistance. We understand that caregiving can be emotionally and physically demanding. Our platform helps families find the right mental, medical, legal, and wellness support online. We aim to strengthen both individuals and their support systems.",
+  },
+  {
+    question: "Do I need a referral to use Hyphen Konnect?",
+    answer:
+      "No referral is needed to use Hyphen Konnect. You can directly reach out to us whenever you feel the need for support. Our simple and easy onboarding process allows you to get started quickly without any formal paperwork. We are here to guide you step by step from your very first interaction.",
+  },
+  {
+    question: "How do I get started with Hyphen Konnect?",
+    answer:
+      "Getting started is simple and quick. Click on “Connect with us,” fill out the short form with your basic details and concerns, and submit it. Our team will contact you within 24 hours to understand your needs better. From there, we will guide you through selecting the right professional and scheduling your online session.",
+  },
 ];
 
 export function HomePageContent() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [activeJourneyStep, setActiveJourneyStep] = useState(1);
 
   return (
     <div className="bg-[#f7f5f4] pt-20">
@@ -212,48 +317,87 @@ export function HomePageContent() {
           <div className="grid items-center gap-16 lg:grid-cols-2">
             <div className="space-y-6">
               {journey.map((item, index) => (
-                <div key={item.step} className={`rounded-[24px] p-8 ${item.bg}`}>
+                <button
+                  key={item.step}
+                  type="button"
+                  onClick={() => setActiveJourneyStep(index)}
+                  className={`block w-full rounded-[24px] p-8 text-left transition-all ${
+                    activeJourneyStep === index
+                      ? "bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] shadow-lg"
+                      : "bg-[#bfd4ee] hover:bg-[#b3cae8]"
+                  }`}
+                >
                   <div className="flex items-center gap-6">
-                    <div className="text-[64px] font-bold leading-none text-white">{item.step}</div>
-                    <h3 className={`text-[18px] font-bold leading-6 ${index === 1 ? "text-white" : "text-[#2b2b2b]"}`}>
+                    <div className="text-[64px] font-bold leading-none text-white">
+                      {item.step}
+                    </div>
+                    <h3
+                      className={`text-[18px] font-bold leading-6 ${
+                        activeJourneyStep === index
+                          ? "text-white"
+                          : "text-[#2b2b2b]"
+                      }`}
+                    >
                       {item.title}
                     </h3>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
             <div className="relative flex justify-center lg:justify-end">
               <div className="relative h-[680px] w-[340px] rounded-[48px] bg-[#1a1a1a] p-3 shadow-2xl">
                 <div className="absolute top-6 left-1/2 z-10 h-[28px] w-[120px] -translate-x-1/2 rounded-full bg-[#1a1a1a]" />
                 <div className="h-full w-full overflow-hidden rounded-[36px] bg-white">
-                  <div className="p-8 pt-12">
-                    <div className="mb-8 text-center">
-                      <p className="mb-4 text-[14px] text-[#f56969]">The Hyphen Konnect</p>
-                      <h3 className="text-[18px] font-bold text-[#2b2b2b]">Meet with professional</h3>
-                    </div>
-                    <div className="rounded-[20px] bg-white p-6 shadow-lg">
-                      <div className="mb-4 text-center">
-                        <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-r from-[#f5912d]/20 via-[#f56969]/20 to-[#e6b9e6]/20">
-                          <Brain className="h-12 w-12 text-[#f56969]" />
-                        </div>
-                        <h4 className="mb-1 text-[16px] font-bold text-[#2b2b2b]">Swetha Rao Madiwalar</h4>
-                        <div className="mb-3 flex items-center justify-center gap-2">
-                          <span className="text-[12px] text-[#7e7e7e]">Delhi</span>
-                          <span className="rounded-full bg-[#f56969] px-3 py-1 text-[10px] font-medium text-white">Top Rated</span>
-                        </div>
+                  {journey[activeJourneyStep]?.mockup === "intake" ? (
+                    <JourneyIntakeScreen />
+                  ) : journey[activeJourneyStep]?.mockup === "video" ? (
+                    <JourneyVideoScreen />
+                  ) : journey[activeJourneyStep]?.mockup === "dashboard" ? (
+                    <JourneyDashboardScreen />
+                  ) : (
+                    <div className="p-8 pt-12">
+                      <div className="mb-8 text-center">
+                        <p className="mb-4 text-[14px] text-[#f56969]">
+                          The Hyphen Konnect
+                        </p>
+                        <h3 className="text-[18px] font-bold text-[#2b2b2b]">
+                          Meet with professional
+                        </h3>
                       </div>
-                      <p className="mb-4 text-center text-[11px] leading-4 text-[#7e7e7e]">
-                        A compassionate counselor profile designed to mirror the Figma mobile card.
-                      </p>
-                      <div className="mb-4 space-y-2">
-                        <DetailItem label="7 Years Experience" />
-                        <DetailItem label="Master Degree in Law" />
+                      <div className="rounded-[20px] bg-white p-6 shadow-lg">
+                        <div className="mb-4 text-center">
+                          <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-r from-[#f5912d]/20 via-[#f56969]/20 to-[#e6b9e6]/20">
+                            <Brain className="h-12 w-12 text-[#f56969]" />
+                          </div>
+                          <h4 className="mb-1 text-[16px] font-bold text-[#2b2b2b]">
+                            Swetha Rao Madiwalar
+                          </h4>
+                          <div className="mb-3 flex items-center justify-center gap-2">
+                            <span className="text-[12px] text-[#7e7e7e]">
+                              Delhi
+                            </span>
+                            <span className="rounded-full bg-[#f56969] px-3 py-1 text-[10px] font-medium text-white">
+                              Top Rated
+                            </span>
+                          </div>
+                        </div>
+                        <p className="mb-4 text-center text-[11px] leading-4 text-[#7e7e7e]">
+                          A compassionate counselor profile designed to mirror
+                          the Figma mobile card.
+                        </p>
+                        <div className="mb-4 space-y-2">
+                          <DetailItem label="7 Years Experience" />
+                          <DetailItem label="Master Degree in Law" />
+                        </div>
+                        <button
+                          type="button"
+                          className="w-full rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] py-3 text-[12px] font-medium text-white"
+                        >
+                          Book Session
+                        </button>
                       </div>
-                      <button type="button" className="w-full rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] py-3 text-[12px] font-medium text-white">
-                        Book Session
-                      </button>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -274,7 +418,7 @@ export function HomePageContent() {
                 </div>
                 <h3 className="mb-3 text-[20px] font-bold text-[#2b2b2b]">{feature.title}</h3>
                 <p className="text-[15px] leading-6 text-[#7e7e7e]">
-                  Platform-level trust, support, and care built into every interaction.
+                  {feature.description}
                 </p>
               </div>
             ))}
@@ -286,16 +430,22 @@ export function HomePageContent() {
         <div className="mx-auto max-w-[1440px]">
           <SectionHeading eyebrow="Testimonials" title="What Our Clients" highlight="Say" />
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {testimonials.map((quote, index) => (
-              <div key={quote} className="rounded-[24px] bg-gradient-to-br from-[#f7f5f4] to-white p-6 transition-all hover:shadow-lg">
+            {testimonials.map((testimonial, index) => (
+              <div key={testimonial.name} className="rounded-[24px] bg-gradient-to-br from-[#f7f5f4] to-white p-6 transition-all hover:shadow-lg">
                 <div className="mb-4 flex items-center gap-1">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Star key={`${index}-${i}`} className="h-4 w-4 fill-[#f5912d] text-[#f5912d]" />
                   ))}
                 </div>
-                <p className="mb-6 text-[14px] leading-[22px] text-[#7e7e7e]">&ldquo;{quote}&rdquo;</p>
-                <p className="text-[16px] font-bold text-[#2b2b2b]">Client Story</p>
-                <p className="text-[13px] text-[#f56969]">Verified Member</p>
+                <p className="mb-6 text-[14px] leading-[22px] text-[#7e7e7e]">
+                  &ldquo;{testimonial.quote}&rdquo;
+                </p>
+                <p className="text-[16px] font-bold text-[#2b2b2b]">
+                  {testimonial.name}
+                </p>
+                <p className="text-[13px] text-[#f56969]">
+                  {testimonial.city}
+                </p>
               </div>
             ))}
           </div>
@@ -304,18 +454,31 @@ export function HomePageContent() {
 
       <section id="faq" className="bg-[#f7f5f4] px-6 py-20 lg:px-[120px]">
         <div className="mx-auto max-w-[1440px]">
-          <SectionHeading eyebrow="FAQ" title="Frequently Asked" highlight="Questions" />
+          <div className="mb-12 text-center">
+            <h2 className="text-[45px] font-bold leading-[48px] tracking-[-1.8px] text-[#2b2b2b]">
+              We&apos;re here to <span className="font-light text-[#f56969]">help</span>
+            </h2>
+          </div>
           <div className="mx-auto max-w-[900px] space-y-4">
             {faqs.map((faq, index) => (
-              <div key={faq} className="overflow-hidden rounded-[20px] bg-white shadow-sm transition-all hover:shadow-md">
+              <div
+                key={faq.question}
+                className="overflow-hidden rounded-[30px] transition-all"
+              >
                 <button
                   type="button"
                   onClick={() => setOpenFaq(openFaq === index ? null : index)}
-                  className="flex w-full items-center justify-between px-8 py-6 text-left"
+                  className="flex w-full items-center justify-between rounded-[30px] border border-[#d6e0ec] bg-[#b9c9de] px-6 py-5 text-left"
                 >
-                  <h3 className="pr-4 text-[18px] font-bold text-[#2b2b2b]">{faq}</h3>
-                  <motion.div animate={{ rotate: openFaq === index ? 180 : 0 }} transition={{ duration: 0.3 }}>
-                    <ChevronDown className="h-6 w-6 text-[#f56969]" />
+                  <h3 className="pr-4 text-[16px] font-normal text-[#2b2b2b]">
+                    {faq.question}
+                  </h3>
+                  <motion.div
+                    animate={{ rotate: openFaq === index ? 45 : 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="text-[18px] font-medium text-[#2b2b2b]"
+                  >
+                    +
                   </motion.div>
                 </button>
                 <motion.div
@@ -324,9 +487,9 @@ export function HomePageContent() {
                   transition={{ duration: 0.3 }}
                   className="overflow-hidden"
                 >
-                  <div className="px-8 pb-6">
-                    <p className="text-[16px] leading-[26px] text-[#7e7e7e]">
-                      The answer content can be expanded here exactly as the Figma interaction expects.
+                  <div className="px-6 pb-2 pt-2">
+                    <p className="text-[14px] leading-[26px] text-[#2b2b2b]">
+                      {faq.answer}
                     </p>
                   </div>
                 </motion.div>
@@ -418,5 +581,186 @@ function DetailItem({ label }: { label: string }) {
       <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#f56969]" />
       <span className="text-[11px] text-[#7e7e7e]">{label}</span>
     </div>
+  );
+}
+
+function JourneyIntakeScreen() {
+  const fields = [
+    "Date",
+    "Full Name",
+    "Birth Date",
+    "Phone Number",
+    "Email",
+    "Tell Us",
+  ];
+
+  return (
+    <div className="h-full bg-[#fbf8f8] px-7 pb-8 pt-16">
+      <p className="mb-7 text-center text-[13px] font-medium text-[#d8a0d2]">
+        The Hyphen Konnect
+      </p>
+      <div className="rounded-[28px] border border-white bg-[#f6f1f1] px-6 py-7 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+        <h3 className="mb-7 text-[14px] font-semibold text-[#ff6b6b]">
+          Tell us what you&apos;re going through
+        </h3>
+        <div className="space-y-4">
+          {fields.map((field) => (
+            <div key={field} className="grid grid-cols-[78px_1fr] items-center gap-3">
+              <span className="text-[11px] text-[#2b2b2b]">{field}</span>
+              <div
+                className={`rounded-[4px] bg-white ${
+                  field === "Tell Us" ? "h-14" : "h-7"
+                }`}
+              />
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          className="mx-auto mt-8 block rounded-[10px] bg-[#ff6b6b] px-10 py-2.5 text-[12px] font-medium text-white"
+        >
+          Submit
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function JourneyVideoScreen() {
+  return (
+    <div className="relative h-full overflow-hidden bg-[#111]">
+      <Image
+        src="/professionals/shreya-aila.jpeg"
+        alt="Session preview"
+        fill
+        sizes="340px"
+        className="object-cover"
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/45" />
+      <div className="absolute left-0 right-0 top-0 flex items-center justify-between px-7 pt-14 text-white">
+        <span className="text-xl">↗</span>
+        <div className="text-center">
+          <p className="text-[12px] font-medium">Shreya Aila</p>
+          <p className="text-[10px] text-white/70">00:24</p>
+        </div>
+        <span className="text-xl">⌄</span>
+      </div>
+      <div className="absolute bottom-28 right-6 overflow-hidden rounded-[16px] border border-white/20 shadow-xl">
+        <Image
+          src="/professionals/aashritha-akula.jpeg"
+          alt="Participant preview"
+          width={92}
+          height={120}
+          className="h-[120px] w-[92px] object-cover"
+        />
+      </div>
+      <div className="absolute bottom-10 left-0 right-0 flex items-center justify-center gap-6">
+        <ControlButton label="Mic" dark={false} />
+        <ControlButton label="End" dark />
+        <ControlButton label="Cam" dark={false} />
+      </div>
+    </div>
+  );
+}
+
+function JourneyDashboardScreen() {
+  const upcoming = [
+    { time: "9:00 AM", label: "Medical Professionals" },
+    { time: "6:30 PM", label: "Wellness Check-in" },
+  ];
+
+  return (
+    <div className="h-full bg-[#fbf8f8] px-7 pb-8 pt-16">
+      <p className="mb-6 text-center text-[13px] font-medium text-[#d8a0d2]">
+        The Hyphen Konnect
+      </p>
+      <div className="rounded-[28px] border border-white bg-[#f6f1f1] px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+        <div className="mb-6 flex items-center justify-between rounded-[16px] bg-white px-4 py-3 shadow-sm">
+          <div className="flex items-center gap-3">
+            <Image
+              src="/professionals/sritha-nandiraj.jpg"
+              alt="User avatar"
+              width={40}
+              height={40}
+              className="h-10 w-10 rounded-full object-cover"
+            />
+            <span className="text-[12px] font-medium text-[#2b2b2b]">
+              Swathi Reddy
+            </span>
+          </div>
+          <span className="text-lg text-[#7e7e7e]">≡</span>
+        </div>
+
+        <div className="space-y-6">
+          <div>
+            <p className="mb-3 text-[13px] font-semibold text-[#ff6b6b]">
+              Appointments
+            </p>
+            <div className="space-y-3">
+              <DashboardField label="Nov 6, 2025" />
+              <DashboardField label="Services" />
+              <DashboardField label="Professionals" />
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-3 text-[12px] text-[#2b2b2b]">November 21, 2025</p>
+            <div className="space-y-2">
+              {upcoming.map((item) => (
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between rounded-[8px] bg-white px-3 py-2 shadow-sm"
+                >
+                  <div className="flex items-center gap-2 text-[11px] text-[#7e7e7e]">
+                    <span>{item.time}</span>
+                    <span>{item.label}</span>
+                  </div>
+                  <span className="h-3 w-3 rounded-full bg-green-500" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-3 text-[13px] font-semibold text-[#ff6b6b]">Events</p>
+            <DashboardField label="Dec 25, 2025" />
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="mx-auto mt-8 block rounded-[10px] bg-[#ff6b6b] px-10 py-2.5 text-[12px] font-medium text-white"
+        >
+          Book Now
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DashboardField({ label }: { label: string }) {
+  return (
+    <div className="rounded-[8px] bg-white px-4 py-2.5 text-center text-[11px] text-[#c3c3c3] shadow-sm">
+      {label}
+    </div>
+  );
+}
+
+function ControlButton({
+  label,
+  dark,
+}: {
+  label: string;
+  dark?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className={`flex h-14 w-14 items-center justify-center rounded-full text-[12px] font-medium ${
+        dark ? "bg-[#ff2435] text-white" : "bg-white text-[#2b2b2b]"
+      }`}
+    >
+      {label}
+    </button>
   );
 }

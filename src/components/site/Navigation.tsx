@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Brain,
@@ -13,6 +15,8 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
+import { useAuth } from "../auth/AuthProvider";
+import { roleToDashboard } from "../auth/ProtectedRoute";
 
 const navItems = [
   { label: "Home", href: "/" },
@@ -51,6 +55,8 @@ const professionalCategories = [
 ];
 
 export function Navigation() {
+  const router = useRouter();
+  const { isAuthenticated, signOut, user } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfessionalsOpen, setIsProfessionalsOpen] = useState(false);
@@ -64,6 +70,13 @@ export function Navigation() {
   }, []);
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
+  const dashboardHref = user ? roleToDashboard(user.role) : "/login";
+
+  const handleSignOut = () => {
+    signOut();
+    closeMobileMenu();
+    router.push("/");
+  };
 
   return (
     <>
@@ -72,17 +85,16 @@ export function Navigation() {
           isScrolled ? "bg-white/95 shadow-md backdrop-blur-sm" : "bg-white"
         }`}
       >
-        <div className="mx-auto flex max-w-[1440px] items-center justify-between px-6 py-4 lg:px-[120px]">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] text-lg font-bold text-white shadow-md">
-              H
-            </div>
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#f56969]">
-                The Hyphen
-              </p>
-              <p className="text-base font-bold text-[#2b2b2b]">Konnect</p>
-            </div>
+        <div className="mx-auto flex max-w-[1440px] items-center justify-between px-5 py-3 lg:px-[120px]">
+          <Link href="/" className="flex items-center">
+            <Image
+              src="/brand-logo.png"
+              alt="The Hyphen Konnect"
+              width={174}
+              height={112}
+              priority
+              className="h-auto w-[86px] lg:w-[104px]"
+            />
           </Link>
 
           <div className="hidden items-center gap-8 lg:flex">
@@ -175,12 +187,30 @@ export function Navigation() {
           </div>
 
           <div className="hidden items-center gap-4 lg:flex">
-            <Link
-              href="/resources"
-              className="font-medium text-[#2b2b2b] transition-colors hover:text-[#f56969]"
-            >
-              Sign In
-            </Link>
+            {isAuthenticated ? (
+              <>
+                <Link
+                  href={dashboardHref}
+                  className="font-medium text-[#2b2b2b] transition-colors hover:text-[#f56969]"
+                >
+                  Dashboard
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="font-medium text-[#2b2b2b] transition-colors hover:text-[#f56969]"
+                >
+                  Log Out
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className="font-medium text-[#2b2b2b] transition-colors hover:text-[#f56969]"
+              >
+                Sign In
+              </Link>
+            )}
             <Link
               href="/booking"
               className="rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] px-6 py-2.5 font-medium text-white shadow-md transition-all hover:shadow-lg"
@@ -207,7 +237,7 @@ export function Navigation() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.2 }}
-            className="fixed left-0 right-0 top-[76px] z-40 bg-white shadow-lg lg:hidden"
+            className="fixed left-0 right-0 top-[68px] z-40 bg-white shadow-lg lg:hidden"
           >
             <div className="space-y-4 px-6 py-8">
               {navItems.map((item) => (
@@ -240,13 +270,32 @@ export function Navigation() {
               ))}
 
               <div className="space-y-3 pt-4">
-                <Link
-                  href="/resources"
-                  onClick={closeMobileMenu}
-                  className="block w-full rounded-full border-2 border-[#2b2b2b] px-6 py-3 text-center font-medium text-[#2b2b2b] transition-all hover:bg-[#2b2b2b] hover:text-white"
-                >
-                  Sign In
-                </Link>
+                {isAuthenticated ? (
+                  <>
+                    <Link
+                      href={dashboardHref}
+                      onClick={closeMobileMenu}
+                      className="block w-full rounded-full border-2 border-[#2b2b2b] px-6 py-3 text-center font-medium text-[#2b2b2b] transition-all hover:bg-[#2b2b2b] hover:text-white"
+                    >
+                      Dashboard
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleSignOut}
+                      className="block w-full rounded-full border-2 border-[#ead9e8] px-6 py-3 text-center font-medium text-[#2b2b2b]"
+                    >
+                      Log Out
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    href="/login"
+                    onClick={closeMobileMenu}
+                    className="block w-full rounded-full border-2 border-[#2b2b2b] px-6 py-3 text-center font-medium text-[#2b2b2b] transition-all hover:bg-[#2b2b2b] hover:text-white"
+                  >
+                    Sign In
+                  </Link>
+                )}
                 <Link
                   href="/booking"
                   onClick={closeMobileMenu}
