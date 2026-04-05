@@ -40,6 +40,58 @@ export type ProfessionalProfile = {
   feeCards?: { label: string; price: string }[];
 };
 
+export type BackendProfessionalRecord = {
+  _id: string;
+  id?: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  avatar?: string;
+  bio?: string;
+  specialisation?: string;
+  qualifications?: string[];
+  expertise?: string[];
+  yearsExperience?: number;
+  sessionPrice?: number;
+  verified?: boolean;
+  averageRating?: number;
+  reviewCount?: number;
+  availability?: {
+    timezone?: string;
+    workingHours?: Record<
+      string,
+      {
+        start?: string;
+        end?: string;
+        slots?: { start: string; end: string }[];
+      }
+    >;
+    breaks?: { start: string; end: string }[];
+    blockedDates?: string[];
+  };
+  isActive?: boolean;
+  onboardingComplete?: boolean;
+};
+
+export type DirectoryProfessional = {
+  id: string | number;
+  backendId?: string;
+  slug?: string;
+  name: string;
+  specialty: string;
+  category: string;
+  image: string;
+  rating: number;
+  reviews: number;
+  experience: string;
+  rate: string;
+  available: boolean;
+  location?: string;
+  workingHours?: string;
+  daysOff?: string;
+  backendAvailability?: BackendProfessionalRecord["availability"];
+};
+
 export const serviceCatalog = [
   {
     slug: "mental-wellness",
@@ -677,6 +729,86 @@ export const professionals: ProfessionalProfile[] = [
 
 export function getProfessionalBySlug(slug: string) {
   return professionals.find((professional) => professional.slug === slug);
+}
+
+export function getProfessionalByName(name: string) {
+  const target = normalizeProfessionalName(name);
+  return professionals.find(
+    (professional) => normalizeProfessionalName(professional.name) === target,
+  );
+}
+
+export function normalizeProfessionalName(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+export function inferProfessionalCategory(value: string) {
+  const content = value.toLowerCase();
+  if (
+    content.includes("psych") ||
+    content.includes("therapy") ||
+    content.includes("therapist") ||
+    content.includes("counsel")
+  ) {
+    return "therapist";
+  }
+  if (
+    content.includes("doctor") ||
+    content.includes("physician") ||
+    content.includes("medical") ||
+    content.includes("medicine") ||
+    content.includes("psychiatrist")
+  ) {
+    return "doctor";
+  }
+  if (
+    content.includes("legal") ||
+    content.includes("law") ||
+    content.includes("advocate") ||
+    content.includes("counsel")
+  ) {
+    return "legal";
+  }
+  if (
+    content.includes("wellness") ||
+    content.includes("yoga") ||
+    content.includes("meditation") ||
+    content.includes("somatic")
+  ) {
+    return "wellness";
+  }
+  return "all";
+}
+
+export function mapBackendProfessionalToDirectory(
+  professional: BackendProfessionalRecord,
+): DirectoryProfessional {
+  const localMatch = getProfessionalByName(professional.name);
+  const specialty =
+    professional.specialisation || localMatch?.specialty || "Specialist";
+
+  return {
+    id: professional.id || professional._id,
+    backendId: professional._id,
+    slug: localMatch?.slug,
+    name: professional.name,
+    specialty,
+    category: localMatch?.category || inferProfessionalCategory(specialty),
+    image: localMatch?.image || professional.avatar || "/brand-logo.png",
+    rating: professional.averageRating || localMatch?.rating || 0,
+    reviews: professional.reviewCount || localMatch?.reviews || 0,
+    experience: professional.yearsExperience
+      ? `${professional.yearsExperience} years`
+      : localMatch?.experience || "Experience available",
+    rate: professional.sessionPrice
+      ? `Rs. ${professional.sessionPrice}/session`
+      : localMatch?.rate || "Contact for pricing",
+    available: professional.isActive ?? localMatch?.available ?? true,
+    location: localMatch?.location,
+    workingHours: localMatch?.workingHours,
+    daysOff: localMatch?.daysOff,
+    backendAvailability: professional.availability,
+  };
 }
 
 export const professionalCategories = [

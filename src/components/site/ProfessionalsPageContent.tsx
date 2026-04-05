@@ -3,35 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Search, Star } from "lucide-react";
-import { professionalCategories, professionals } from "./data";
+import {
+  mapBackendProfessionalToDirectory,
+  professionalCategories,
+  professionals,
+  type BackendProfessionalRecord,
+  type DirectoryProfessional,
+} from "./data";
 import { GradientCta, PageHero, SectionTitle } from "./page-primitives";
-import { apiFetch } from "../../lib/api";
-
-type RemoteProfessional = {
-  _id?: string;
-  name?: string;
-  specialties?: string[];
-  qualifications?: string[];
-  profileImage?: string | null;
-  averageRating?: number;
-  totalReviews?: number;
-  yearsOfExperience?: number;
-  sessionPrice?: number;
-};
-
-type DirectoryProfessional = {
-  id: string | number;
-  slug?: string;
-  name: string;
-  specialty: string;
-  category: string;
-  image: string;
-  rating: number;
-  reviews: number;
-  experience: string;
-  rate: string;
-  available: boolean;
-};
+import { apiFetch, parseJsonResponse } from "../../lib/api";
 
 export function ProfessionalsPageContent({
   initialCategory = "all",
@@ -40,9 +20,7 @@ export function ProfessionalsPageContent({
 }) {
   const [category, setCategory] = useState(initialCategory);
   const [searchTerm, setSearchTerm] = useState("");
-  const [remoteProfessionals, setRemoteProfessionals] = useState<
-    DirectoryProfessional[]
-  >(professionals);
+  const [directory, setDirectory] = useState<DirectoryProfessional[]>(professionals);
   const [usingLiveData, setUsingLiveData] = useState(false);
 
   useEffect(() => {
@@ -51,42 +29,17 @@ export function ProfessionalsPageContent({
     const loadProfessionals = async () => {
       try {
         const response = await apiFetch("/api/professionals");
-        if (!response.ok) return;
-
-        const data = await response.json();
+        const data = await parseJsonResponse<BackendProfessionalRecord[]>(response);
         if (!Array.isArray(data) || cancelled) return;
 
-        const mapped = (data as RemoteProfessional[]).map((item, index) => ({
-          id: item._id ?? index,
-          slug: undefined,
-          name: item.name ?? "Professional",
-          specialty:
-            item.specialties?.[0] ??
-            item.qualifications?.[0] ??
-            "Specialist",
-          category: mapProfessionalCategory(item.specialties),
-          image:
-            item.profileImage ||
-            "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=300",
-          rating: item.averageRating ?? 0,
-          reviews: item.totalReviews ?? 0,
-          experience: item.yearsOfExperience
-            ? `${item.yearsOfExperience} years`
-            : "Experience available",
-          rate: item.sessionPrice
-            ? `₹${item.sessionPrice}/session`
-            : "Contact for pricing",
-          available: true,
-        }));
-
-        setRemoteProfessionals(mapped);
+        setDirectory(data.map(mapBackendProfessionalToDirectory));
         setUsingLiveData(true);
       } catch {
-        // Keep static fallback data if live fetch fails or requires auth.
+        // Keep local fallback data when the backend is unavailable.
       }
     };
 
-    loadProfessionals();
+    void loadProfessionals();
 
     return () => {
       cancelled = true;
@@ -94,7 +47,7 @@ export function ProfessionalsPageContent({
   }, []);
 
   const filtered = useMemo(() => {
-    return remoteProfessionals.filter((professional) => {
+    return directory.filter((professional) => {
       const matchesCategory =
         category === "all" || professional.category === category;
       const matchesSearch =
@@ -102,7 +55,7 @@ export function ProfessionalsPageContent({
         professional.specialty.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesCategory && matchesSearch;
     });
-  }, [category, remoteProfessionals, searchTerm]);
+  }, [category, directory, searchTerm]);
 
   return (
     <div className="pt-20">
@@ -151,16 +104,33 @@ export function ProfessionalsPageContent({
 
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {filtered.map((professional) => (
-              <div key={professional.id} className="overflow-hidden rounded-[24px] bg-[#f7f5f4] shadow-sm">
-                <img src={professional.image} alt={professional.name} className="h-[240px] w-full object-cover" />
+              <div
+                key={professional.id}
+                className="overflow-hidden rounded-[24px] bg-[#f7f5f4] shadow-sm"
+              >
+                <img
+                  src={professional.image}
+                  alt={professional.name}
+                  className="h-[240px] w-full object-cover"
+                />
                 <div className="p-6">
                   <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-[20px] font-bold text-[#2b2b2b]">{professional.name}</h3>
-                    <span className={`rounded-full px-3 py-1 text-[12px] font-medium ${professional.available ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-600"}`}>
+                    <h3 className="text-[20px] font-bold text-[#2b2b2b]">
+                      {professional.name}
+                    </h3>
+                    <span
+                      className={`rounded-full px-3 py-1 text-[12px] font-medium ${
+                        professional.available
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-200 text-gray-600"
+                      }`}
+                    >
                       {professional.available ? "Available" : "Waitlist"}
                     </span>
                   </div>
-                  <p className="mb-3 text-[15px] font-medium text-[#f56969]">{professional.specialty}</p>
+                  <p className="mb-3 text-[15px] font-medium text-[#f56969]">
+                    {professional.specialty}
+                  </p>
                   <div className="mb-4 flex items-center gap-4 text-[14px] text-[#7e7e7e]">
                     <span>{professional.experience}</span>
                     {professional.rating > 0 && professional.reviews > 0 ? (
@@ -171,7 +141,9 @@ export function ProfessionalsPageContent({
                     ) : null}
                   </div>
                   <div className="flex items-center justify-between border-t border-[#ead9e8] pt-4">
-                    <span className="text-[18px] font-bold text-[#2b2b2b]">{professional.rate}</span>
+                    <span className="text-[18px] font-bold text-[#2b2b2b]">
+                      {professional.rate}
+                    </span>
                     <div className="flex items-center gap-3">
                       {professional.slug ? (
                         <Link
@@ -181,7 +153,10 @@ export function ProfessionalsPageContent({
                           View Profile
                         </Link>
                       ) : null}
-                      <Link href="/booking" className="rounded-full bg-[#2b2b2b] px-5 py-2.5 text-sm font-medium text-white">
+                      <Link
+                        href="/booking"
+                        className="rounded-full bg-[#2b2b2b] px-5 py-2.5 text-sm font-medium text-white"
+                      >
                         Book Now
                       </Link>
                     </div>
@@ -205,7 +180,10 @@ export function ProfessionalsPageContent({
               "Support for session management and follow-up",
               "A care-first brand aligned with meaningful impact",
             ].map((item) => (
-              <div key={item} className="rounded-[24px] bg-white p-6 text-[16px] text-[#2b2b2b] shadow-sm">
+              <div
+                key={item}
+                className="rounded-[24px] bg-white p-6 text-[16px] text-[#2b2b2b] shadow-sm"
+              >
                 {item}
               </div>
             ))}
@@ -215,7 +193,7 @@ export function ProfessionalsPageContent({
 
       <GradientCta
         title="Want to Join as a Professional?"
-        description="If you’re licensed and interested in building your practice with us, get in touch and we’ll walk you through the process."
+        description="If you're licensed and interested in building your practice with us, get in touch and we'll walk you through the process."
         primaryHref="/contact"
         primaryLabel="Apply to Join"
         secondaryHref="/booking"
@@ -223,29 +201,4 @@ export function ProfessionalsPageContent({
       />
     </div>
   );
-}
-
-function mapProfessionalCategory(specialties?: string[]) {
-  const content = (specialties || []).join(" ").toLowerCase();
-  if (
-    content.includes("therapy") ||
-    content.includes("psych") ||
-    content.includes("counsel")
-  ) {
-    return "therapist";
-  }
-  if (
-    content.includes("doctor") ||
-    content.includes("medicine") ||
-    content.includes("medical")
-  ) {
-    return "doctor";
-  }
-  if (content.includes("legal") || content.includes("law")) {
-    return "legal";
-  }
-  if (content.includes("wellness") || content.includes("nutrition")) {
-    return "wellness";
-  }
-  return "all";
 }
