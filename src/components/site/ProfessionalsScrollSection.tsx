@@ -157,11 +157,13 @@ export function ProfessionalsScrollSection() {
                           key={`${item.service.title}-${personIndex}-${name}`}
                           className="group relative h-[280px] w-[220px] flex-shrink-0 overflow-hidden rounded-[24px] shadow-lg"
                         >
-                          <img
-                            src={professional.image}
-                            alt={professional.name}
-                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          />
+                          <div className="h-full bg-[linear-gradient(180deg,#ece1d7_0%,#f7f2ed_100%)] p-3 pb-0">
+                            <img
+                              src={professional.image}
+                              alt={professional.name}
+                              className="h-full w-full rounded-t-[20px] object-cover object-[center_20%] transition-transform duration-500 group-hover:scale-105"
+                            />
+                          </div>
                           <div className="absolute inset-0 bg-gradient-to-t from-[#201b26] via-[#201b26]/20 to-transparent" />
                           <div className="absolute inset-x-0 bottom-0 p-4">
                             <div className="rounded-[18px] bg-white/90 p-4 backdrop-blur-sm">

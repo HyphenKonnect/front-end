@@ -21,11 +21,11 @@ export function ProfessionalProfilePage({
           </div>
 
           <div className="grid gap-10 lg:grid-cols-[0.95fr_1.05fr]">
-            <div className="overflow-hidden rounded-[32px] bg-[#f7f5f4] shadow-sm">
+            <div className="overflow-hidden rounded-[32px] bg-[linear-gradient(180deg,#ece1d7_0%,#f7f2ed_100%)] p-4 pb-0 shadow-sm">
               <img
                 src={professional.image}
                 alt={professional.name}
-                className="h-full min-h-[420px] w-full object-cover"
+                className="h-full min-h-[460px] w-full rounded-t-[28px] object-cover object-[center_20%]"
               />
             </div>
 
@@ -225,11 +225,13 @@ export function ProfessionalProfilePage({
                 href={`/professionals/${item.slug}`}
                 className="overflow-hidden rounded-[24px] bg-[#f7f5f4] shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
               >
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="h-[240px] w-full object-cover"
-                />
+                <div className="bg-[linear-gradient(180deg,#ece1d7_0%,#f7f2ed_100%)] p-3 pb-0">
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    className="h-[255px] w-full rounded-t-[22px] object-cover object-[center_20%]"
+                  />
+                </div>
                 <div className="p-6">
                   <p className="text-[20px] font-bold text-[#2b2b2b]">{item.name}</p>
                   <p className="mt-2 text-[15px] font-medium text-[#f56969]">

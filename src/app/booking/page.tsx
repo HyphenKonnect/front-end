@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   CheckCircle,
   ChevronLeft,
@@ -76,10 +77,12 @@ const localDirectory: DirectoryProfessional[] = professionals.map((professional)
 }));
 
 export default function BookingPage() {
+  const searchParams = useSearchParams();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const today = useMemo(() => startOfDay(new Date()), []);
+  const initialService = searchParams.get("service") || "";
   const [step, setStep] = useState(1);
-  const [selectedService, setSelectedService] = useState("");
+  const [selectedService, setSelectedService] = useState(initialService);
   const [selectedProfessional, setSelectedProfessional] = useState<string | number | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("");
@@ -96,6 +99,21 @@ export default function BookingPage() {
     scheduledAt: string;
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const nextService = searchParams.get("service") || "";
+    if (!nextService) return;
+    if (!serviceCatalog.some((service) => service.slug === nextService)) return;
+
+    setSelectedService(nextService);
+    setSelectedProfessional(null);
+    setSelectedDate(null);
+    setSelectedTime("");
+    setBookingError("");
+    setBookingSuccess(null);
+    setStep(2);
+    setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+  }, [searchParams, today]);
 
   useEffect(() => {
     let cancelled = false;
@@ -264,9 +282,9 @@ export default function BookingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f7f5f4] pt-20">
-      <div className="border-b border-gray-200 bg-white">
-        <div className="mx-auto max-w-[1200px] px-6 py-6">
+    <div className="min-h-screen bg-[#f7f5f4] pt-28">
+      <div className="border-y border-gray-200 bg-white">
+        <div className="mx-auto max-w-[1200px] px-6 py-8">
           <div className="mb-4 flex items-center justify-between">
             {[1, 2, 3, 4].map((current) => (
               <div key={current} className="flex flex-1 items-center">
@@ -377,16 +395,39 @@ export default function BookingPage() {
                   className={`overflow-hidden rounded-[24px] bg-white text-left transition-all ${
                     selectedProfessional === pro.id
                       ? "border-2 border-[#f56969] shadow-lg"
-                      : "border-2 border-transparent"
+                      : "border border-[#e9e2df] shadow-[0_14px_36px_rgba(29,25,22,0.06)]"
                   }`}
                 >
-                  <img src={pro.image} alt={pro.name} className="h-[200px] w-full object-cover" />
-                  <div className="p-6">
-                    <h3 className="text-[18px] font-bold text-[#2b2b2b]">{pro.name}</h3>
-                    <p className="mb-3 text-[14px] text-[#f56969]">{pro.specialty}</p>
-                    <div className="flex items-center justify-between text-[13px] text-[#7e7e7e]">
-                      <span>{pro.experience}</span>
-                      <span>{pro.rate}</span>
+                  <div className="bg-[#f4efeb] p-3">
+                    <img
+                      src={pro.image}
+                      alt={pro.name}
+                      className="h-[220px] w-full rounded-[18px] object-cover object-[center_20%]"
+                    />
+                  </div>
+                  <div className="p-6 pt-5">
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-[22px] font-bold text-[#2b2b2b]">{pro.name}</h3>
+                        <p className="mt-2 text-[14px] font-medium text-[#f56969]">
+                          {pro.specialty}
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-[#ffd5cf] px-3 py-1 text-[12px] font-medium text-[#f56969]">
+                        Online
+                      </span>
+                    </div>
+                    <div className="grid gap-2 text-[14px] text-[#6f6f6f]">
+                      <div className="flex items-center justify-between gap-3">
+                        <span>{pro.experience} of experience</span>
+                        <span className="font-semibold text-[#2b2b2b]">{pro.rate}</span>
+                      </div>
+                      {pro.location ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <span>{pro.location}</span>
+                          <span className="text-[#7e7e7e]">Verified profile</span>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </button>

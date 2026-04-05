@@ -110,60 +110,73 @@ export function ProfessionalsPageContent({
             {filtered.map((professional) => (
               <div
                 key={professional.id}
-                className="overflow-hidden rounded-[24px] bg-[#f7f5f4] shadow-sm"
+                className="overflow-hidden rounded-[28px] border border-[#e9e2df] bg-white shadow-[0_14px_36px_rgba(29,25,22,0.06)]"
               >
-                <img
-                  src={professional.image}
-                  alt={professional.name}
-                  className="h-[240px] w-full object-cover"
-                />
-                <div className="p-6">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-[20px] font-bold text-[#2b2b2b]">
-                      {professional.name}
-                    </h3>
+                <div className="bg-[#f4efeb] p-3">
+                  <img
+                    src={professional.image}
+                    alt={professional.name}
+                    className="h-[280px] w-full rounded-[18px] object-cover object-[center_20%]"
+                  />
+                </div>
+                <div className="p-6 pt-5">
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-[24px] font-bold text-[#2b2b2b]">
+                        {professional.name}
+                      </h3>
+                      <p className="mt-2 text-[15px] font-medium text-[#f56969]">
+                        {professional.specialty}
+                      </p>
+                    </div>
                     <span
-                      className={`rounded-full px-3 py-1 text-[12px] font-medium ${
+                      className={`rounded-full border px-3 py-1 text-[12px] font-medium ${
                         professional.available
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-200 text-gray-600"
+                          ? "border-[#ffd5cf] text-[#f56969]"
+                          : "border-[#dfdfdf] text-[#7a7a7a]"
                       }`}
                     >
-                      {professional.available ? "Available" : "Waitlist"}
+                      {professional.available ? "Online" : "Waitlist"}
                     </span>
                   </div>
-                  <p className="mb-3 text-[15px] font-medium text-[#f56969]">
-                    {professional.specialty}
-                  </p>
-                  <div className="mb-4 flex items-center gap-4 text-[14px] text-[#7e7e7e]">
-                    <span>{professional.experience}</span>
-                    {professional.rating > 0 && professional.reviews > 0 ? (
-                      <span className="inline-flex items-center gap-1">
-                        <Star className="h-4 w-4 fill-[#f5912d] text-[#f5912d]" />
-                        {professional.rating} ({professional.reviews})
-                      </span>
+
+                  <div className="mb-4 grid gap-3 text-[14px] text-[#6f6f6f]">
+                    <div className="flex items-center justify-between gap-4">
+                      <span>{professional.experience} of experience</span>
+                      <span className="font-semibold text-[#2b2b2b]">{professional.rate}</span>
+                    </div>
+                    {professional.location ? (
+                      <div className="flex items-center justify-between gap-4">
+                        <span>{professional.location}</span>
+                        {professional.rating > 0 && professional.reviews > 0 ? (
+                          <span className="inline-flex items-center gap-1">
+                            <Star className="h-4 w-4 fill-[#f5912d] text-[#f5912d]" />
+                            {professional.rating} ({professional.reviews})
+                          </span>
+                        ) : (
+                          <span className="text-[#7e7e7e]">Verified profile</span>
+                        )}
+                      </div>
                     ) : null}
                   </div>
-                  <div className="flex items-center justify-between border-t border-[#ead9e8] pt-4">
-                    <span className="text-[18px] font-bold text-[#2b2b2b]">
-                      {professional.rate}
-                    </span>
-                    <div className="flex items-center gap-3">
-                      {professional.slug ? (
-                        <Link
-                          href={`/professionals/${professional.slug}`}
-                          className="rounded-full border border-[#2b2b2b] px-4 py-2.5 text-sm font-medium text-[#2b2b2b]"
-                        >
-                          View Profile
-                        </Link>
-                      ) : null}
+
+                  <div className="grid grid-cols-2 gap-3 border-t border-[#eee6e3] pt-5">
+                    {professional.slug ? (
                       <Link
-                        href="/booking"
-                        className="rounded-full bg-[#2b2b2b] px-5 py-2.5 text-sm font-medium text-white"
+                        href={`/professionals/${professional.slug}`}
+                        className="inline-flex items-center justify-center rounded-full border border-[#dad1cd] px-4 py-3 text-sm font-semibold tracking-[0.08em] text-[#2b2b2b] uppercase"
                       >
-                        Book Now
+                        View Profile
                       </Link>
-                    </div>
+                    ) : (
+                      <div />
+                    )}
+                    <Link
+                      href="/booking"
+                      className="inline-flex items-center justify-center rounded-full bg-[#ef6e43] px-4 py-3 text-sm font-semibold tracking-[0.08em] text-white uppercase shadow-sm"
+                    >
+                      Book
+                    </Link>
                   </div>
                 </div>
               </div>

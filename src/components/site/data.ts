@@ -101,7 +101,7 @@ export const serviceCatalog = [
     description:
       "Licensed therapists and counselors provide compassionate, evidence-based support for anxiety, stress, trauma, relationships, and growth.",
     image:
-      "https://images.unsplash.com/photo-1714976695024-55a90b113f68?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+      "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1280",
     features: [
       "Individual Therapy Sessions",
       "Trauma-Informed Support",
@@ -120,7 +120,7 @@ export const serviceCatalog = [
     description:
       "Connect with board-certified doctors for virtual consultations, prescription support, health assessments, and ongoing medical care.",
     image:
-      "https://images.unsplash.com/photo-1615177393579-5fc7431152c9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+      "https://images.unsplash.com/photo-1576091160550-2173dba999ef?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1280",
     features: [
       "General Practice Consultations",
       "Specialist Referrals",
@@ -139,7 +139,7 @@ export const serviceCatalog = [
     description:
       "Access qualified attorneys for consultations, document review, rights protection, and clear guidance through complex legal matters.",
     image:
-      "https://images.unsplash.com/photo-1743017524261-f026c51acf7d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+      "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1280",
     features: [
       "Family Law Consultations",
       "Employment Law Advice",
@@ -158,7 +158,7 @@ export const serviceCatalog = [
     description:
       "Comprehensive wellness programs including nutrition guidance, stress management, sleep support, and sustainable healthy routines.",
     image:
-      "https://images.unsplash.com/photo-1773212902295-14c35ee22235?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+      "https://images.unsplash.com/photo-1506126613408-eca07ce68773?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1280",
     features: [
       "Nutrition Plans",
       "Fitness Coaching",
