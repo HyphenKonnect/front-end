@@ -17,7 +17,10 @@ import {
   type DirectoryProfessional,
   type ProfessionalProfile,
 } from "../../components/site/data";
+import { StatusBanner } from "../../components/ui/StatusBanner";
 import { apiFetch, parseJsonResponse } from "../../lib/api";
+import { formatInr } from "../../lib/formatting";
+import { openRazorpayCheckout, type RazorpayOrderPayload } from "../../lib/razorpay";
 import { useAuth } from "../../components/auth/AuthProvider";
 
 const MONTH_NAMES = [
@@ -92,7 +95,7 @@ const localDirectory: DirectoryProfessional[] = professionals.map((professional)
 
 export default function BookingPage() {
   const searchParams = useSearchParams();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const today = useMemo(() => startOfDay(new Date()), []);
   const initialService = searchParams.get("service") || "";
   const bookingIdFromQuery = searchParams.get("bookingId") || "";
@@ -110,6 +113,10 @@ export default function BookingPage() {
   const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [loadingRescheduleBooking, setLoadingRescheduleBooking] = useState(false);
   const [bookingError, setBookingError] = useState("");
+  const [paymentOrder, setPaymentOrder] = useState<RazorpayOrderPayload | null>(null);
+  const [paymentError, setPaymentError] = useState("");
+  const [creatingPaymentOrder, setCreatingPaymentOrder] = useState(false);
+  const [paymentSuccessMessage, setPaymentSuccessMessage] = useState("");
   const [bookingSuccess, setBookingSuccess] = useState<{
     bookingId: string;
     scheduledAt: string;
@@ -130,6 +137,9 @@ export default function BookingPage() {
     setSelectedTime("");
     setBookingError("");
     setBookingSuccess(null);
+    setPaymentOrder(null);
+    setPaymentError("");
+    setPaymentSuccessMessage("");
     setStep(2);
     setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
   }, [searchParams, today]);
@@ -366,6 +376,9 @@ export default function BookingPage() {
       setSubmitting(true);
       setBookingError("");
       setBookingSuccess(null);
+      setPaymentOrder(null);
+      setPaymentError("");
+      setPaymentSuccessMessage("");
 
       const scheduledAt = combineDateAndTime(selectedDate, selectedTime);
       const response = await apiFetch(
@@ -400,6 +413,128 @@ export default function BookingPage() {
       );
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const pricingBreakdown = useMemo(() => {
+    const rateText = selectedPro?.rate || "";
+    const numericMatch = rateText.replace(/,/g, "").match(/(\d+(?:\.\d+)?)/);
+    const basePrice = numericMatch ? Number(numericMatch[1]) : 0;
+    const gstAmount = Number((basePrice * 0.18).toFixed(2));
+    const total = Number((basePrice + gstAmount).toFixed(2));
+
+    return {
+      basePrice,
+      gstAmount,
+      total,
+    };
+  }, [selectedPro?.rate]);
+
+  const handleCreatePaymentOrder = async () => {
+    if (!bookingSuccess?.bookingId) return;
+
+    try {
+      setCreatingPaymentOrder(true);
+      setPaymentError("");
+      setPaymentSuccessMessage("");
+      const response = await apiFetch("/api/payments/create-order", {
+        method: "POST",
+        body: JSON.stringify({ bookingId: bookingSuccess.bookingId }),
+      });
+      const data = await parseJsonResponse<{
+        bookingId: string | null;
+        orderId: string;
+        amount: number;
+        currency: string;
+        key: string;
+      }>(response);
+      const nextOrder = {
+        bookingId: data.bookingId || bookingSuccess.bookingId,
+        orderId: data.orderId,
+        amount: data.amount,
+        currency: data.currency,
+        key: data.key,
+      };
+      setPaymentOrder(nextOrder);
+      return nextOrder;
+    } catch (error) {
+      setPaymentError(
+        error instanceof Error
+          ? error.message
+          : "We could not initialize payment right now.",
+      );
+      return null;
+    } finally {
+      setCreatingPaymentOrder(false);
+    }
+  };
+
+  const handleStartPayment = async () => {
+    if (!bookingSuccess?.bookingId || !selectedPro) return;
+
+    const order = paymentOrder || (await handleCreatePaymentOrder());
+    if (!order) return;
+
+    try {
+      setPaymentError("");
+      setPaymentSuccessMessage("");
+
+      await openRazorpayCheckout({
+        order,
+        name: "The Hyphen Konnect",
+        description: `${selectedPro.name} session`,
+        prefill: {
+          name: user?.name,
+          email: user?.email,
+          contact: user?.phone,
+        },
+        onSuccess: async (response) => {
+          const verifyResponse = await apiFetch("/api/payments/verify", {
+            method: "POST",
+            body: JSON.stringify({
+              bookingId: order.bookingId,
+              orderId: response.razorpay_order_id,
+              paymentId: response.razorpay_payment_id,
+              signature: response.razorpay_signature,
+            }),
+          });
+          const verification = await parseJsonResponse<{
+            success: boolean;
+            message: string;
+            paymentId: string;
+            method?: string;
+            invoiceNumber?: string;
+          }>(verifyResponse);
+
+          const confirmResponse = await apiFetch(`/api/bookings/${order.bookingId}/confirm`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              paymentId: response.razorpay_payment_id,
+              paymentMethod: verification.method || "upi",
+              orderId: response.razorpay_order_id,
+              signature: response.razorpay_signature,
+            }),
+          });
+          await parseJsonResponse(confirmResponse);
+
+          setPaymentSuccessMessage(
+            verification.invoiceNumber
+              ? `Payment completed and booking confirmed. Invoice ${verification.invoiceNumber} is now available in your dashboard.`
+              : "Payment completed and booking confirmed. Your updated receipt is now available in the client dashboard.",
+          );
+          await refreshAvailability();
+        },
+        onFailure: (message) => {
+          setPaymentError(message);
+        },
+        onDismiss: () => {
+          setPaymentError("Payment window closed before completion.");
+        },
+      });
+    } catch (error) {
+      setPaymentError(
+        error instanceof Error ? error.message : "We could not start Razorpay checkout.",
+      );
     }
   };
 
@@ -457,6 +592,9 @@ export default function BookingPage() {
                     setSelectedTime("");
                     setBookingError("");
                     setBookingSuccess(null);
+                    setPaymentOrder(null);
+                    setPaymentError("");
+                    setPaymentSuccessMessage("");
                     setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
                   }}
                   className={`rounded-[24px] bg-white p-8 text-left transition-all ${
@@ -814,15 +952,17 @@ export default function BookingPage() {
                 ) : null}
 
                 {bookingError ? (
-                  <div className="mt-6 rounded-[24px] border border-[#ffd1cf] bg-[#fff3f2] p-5 text-sm text-[#8a3e3b]">
+                  <StatusBanner tone="error" className="mt-6" title="Booking issue">
                     {bookingError}
-                  </div>
+                  </StatusBanner>
                 ) : null}
 
                 {bookingSuccess ? (
-                  <div className="mt-6 rounded-[24px] border border-[#d5efde] bg-[#f4fbf6] p-5 text-sm text-[#24543b]">
-                    <p className="font-semibold">
-                      {isRescheduleMode ? "Booking rescheduled" : "Booking confirmed"}
+                  <StatusBanner tone="success" className="mt-6" title={
+                    isRescheduleMode ? "Booking rescheduled" : "Booking created"
+                  }>
+                    <p>
+                      {isRescheduleMode ? "Booking rescheduled" : "Booking created"}
                     </p>
                     <p className="mt-1">
                       Reference: {bookingSuccess.bookingId}
@@ -831,7 +971,60 @@ export default function BookingPage() {
                       Scheduled for{" "}
                       {formatLongDate(new Date(bookingSuccess.scheduledAt))} at {selectedTime}
                     </p>
+                    {!isRescheduleMode ? (
+                      <p className="mt-1">
+                        Complete payment to automatically confirm this session.
+                      </p>
+                    ) : null}
+                  </StatusBanner>
+                ) : null}
+
+                {paymentSuccessMessage ? (
+                  <StatusBanner tone="success" className="mt-6" title="Payment completed">
+                    {paymentSuccessMessage}
+                  </StatusBanner>
+                ) : null}
+
+                {!isRescheduleMode && pricingBreakdown.basePrice ? (
+                  <div className="mt-6 rounded-[24px] bg-[#f7f5f4] p-5">
+                    <p className="text-sm font-semibold text-[#2b2b2b]">Payment summary</p>
+                    <div className="mt-4 space-y-3 text-sm text-[#6f6f6f]">
+                      <div className="flex items-center justify-between">
+                        <span>Session fee</span>
+                        <span className="font-medium text-[#2b2b2b]">
+                          {formatInr(pricingBreakdown.basePrice)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>GST (18%)</span>
+                        <span className="font-medium text-[#2b2b2b]">
+                          {formatInr(pricingBreakdown.gstAmount)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between border-t border-[#e7dfdc] pt-3 text-base">
+                        <span className="font-semibold text-[#2b2b2b]">Total due</span>
+                        <span className="font-semibold text-[#2b2b2b]">
+                          {formatInr(pricingBreakdown.total)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
+                ) : null}
+
+                {paymentOrder ? (
+                  <StatusBanner tone="info" className="mt-6" title="Payment order initialized">
+                    <p>Order ID: {paymentOrder.orderId}</p>
+                    <p className="mt-1">
+                      Amount: {formatInr(paymentOrder.amount / 100)} {paymentOrder.currency}
+                    </p>
+                    <p className="mt-1">Your Razorpay order is ready for secure checkout.</p>
+                  </StatusBanner>
+                ) : null}
+
+                {paymentError ? (
+                  <StatusBanner tone="error" className="mt-6" title="Payment setup unavailable">
+                    {paymentError}
+                  </StatusBanner>
                 ) : null}
 
                 <div className="mt-8 flex flex-col gap-4">
@@ -845,7 +1038,7 @@ export default function BookingPage() {
                     {bookingSuccess
                       ? isRescheduleMode
                         ? "Reschedule Confirmed"
-                        : "Booking Confirmed"
+                        : "Booking Created"
                       : isRescheduleMode
                         ? "Confirm Reschedule"
                         : "Confirm Booking"}
@@ -858,6 +1051,16 @@ export default function BookingPage() {
                   >
                     Back To Date &amp; Time
                   </button>
+                  {!isRescheduleMode && bookingSuccess ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleStartPayment()}
+                      disabled={creatingPaymentOrder}
+                      className="rounded-full border border-[#ead9e8] px-6 py-4 text-sm font-medium text-[#2b2b2b] disabled:opacity-50"
+                    >
+                      {creatingPaymentOrder ? "Preparing payment..." : "Pay with Razorpay"}
+                    </button>
+                  ) : null}
                   {bookingSuccess ? (
                     <Link
                       href="/dashboard/client"

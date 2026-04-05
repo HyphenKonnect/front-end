@@ -143,40 +143,48 @@ export function ProfessionalsPageContent({
                   <div className="mb-4 grid gap-3 text-[14px] text-[#6f6f6f]">
                     <div className="flex items-center justify-between gap-4">
                       <span>{professional.experience} of experience</span>
-                      <span className="font-semibold text-[#2b2b2b]">{professional.rate}</span>
+                      {professional.rating > 0 && professional.reviews > 0 ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Star className="h-4 w-4 fill-[#f5912d] text-[#f5912d]" />
+                          {professional.rating} ({professional.reviews})
+                        </span>
+                      ) : (
+                        <span className="text-[#7e7e7e]">Verified profile</span>
+                      )}
                     </div>
                     {professional.location ? (
                       <div className="flex items-center justify-between gap-4">
                         <span>{professional.location}</span>
-                        {professional.rating > 0 && professional.reviews > 0 ? (
-                          <span className="inline-flex items-center gap-1">
-                            <Star className="h-4 w-4 fill-[#f5912d] text-[#f5912d]" />
-                            {professional.rating} ({professional.reviews})
-                          </span>
-                        ) : (
-                          <span className="text-[#7e7e7e]">Verified profile</span>
-                        )}
+                        <span className="text-[#7e7e7e]">Online consultation</span>
                       </div>
                     ) : null}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 border-t border-[#eee6e3] pt-5">
-                    {professional.slug ? (
+                  <div className="flex flex-col gap-3 border-t border-[#eee6e3] pt-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-[16px] font-bold leading-tight text-[#2b2b2b]">
+                        {professional.rate.replace(/^Rs\.?\s*/i, "Rs. ")}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 sm:w-auto sm:min-w-[240px]">
+                      {professional.slug ? (
+                        <Link
+                          href={`/professionals/${professional.slug}`}
+                          className="inline-flex min-h-[46px] items-center justify-center rounded-full border border-[#2b2b2b]/20 px-3 py-2 text-center text-[13px] font-semibold leading-tight text-[#2b2b2b] sm:min-h-[48px] sm:px-4"
+                        >
+                          View Profile
+                        </Link>
+                      ) : (
+                        <div />
+                      )}
                       <Link
-                        href={`/professionals/${professional.slug}`}
-                        className="inline-flex items-center justify-center rounded-full border border-[#dad1cd] px-4 py-3 text-sm font-semibold tracking-[0.08em] text-[#2b2b2b] uppercase"
+                        href="/booking"
+                        className="inline-flex min-h-[46px] items-center justify-center rounded-full bg-[#2b2b2b] px-3 py-2 text-center text-[13px] font-semibold leading-tight text-white shadow-sm sm:min-h-[48px] sm:px-4"
                       >
-                        View Profile
+                        Book Now
                       </Link>
-                    ) : (
-                      <div />
-                    )}
-                    <Link
-                      href="/booking"
-                      className="inline-flex items-center justify-center rounded-full bg-[#ef6e43] px-4 py-3 text-sm font-semibold tracking-[0.08em] text-white uppercase shadow-sm"
-                    >
-                      Book
-                    </Link>
+                    </div>
                   </div>
                 </div>
               </div>

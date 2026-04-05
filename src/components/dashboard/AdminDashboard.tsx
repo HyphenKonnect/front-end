@@ -23,6 +23,7 @@ import {
 } from "../../lib/booking-helpers";
 import { formatDateTime, formatInr } from "../../lib/formatting";
 import { professionals } from "../site/data";
+import { StatusBanner } from "../ui/StatusBanner";
 import {
   DashboardCard,
   DashboardGrid,
@@ -98,6 +99,8 @@ export function AdminDashboard() {
   const [bookings, setBookings] = useState<AdminBooking[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+  const [actionBookingId, setActionBookingId] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -143,6 +146,44 @@ export function AdminDashboard() {
       ignore = true;
     };
   }, []);
+
+  const refreshBookings = async () => {
+    const response = await apiFetch("/api/admin/bookings");
+    const data = await parseJsonResponse<AdminBooking[]>(response);
+    setBookings(data);
+  };
+
+  const handleBookingAction = async (
+    bookingId: string,
+    action: "confirm" | "complete",
+  ) => {
+    try {
+      setActionBookingId(bookingId);
+      setError(null);
+      const response = await apiFetch(`/api/bookings/${bookingId}/${action}`, {
+        method: "PATCH",
+        body:
+          action === "confirm"
+            ? JSON.stringify({ paymentMethod: "manual" })
+            : undefined,
+      });
+      await parseJsonResponse(response);
+      await refreshBookings();
+      setSuccessMessage(
+        action === "confirm"
+          ? "Booking confirmed successfully."
+          : "Booking marked as completed.",
+      );
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "We could not update the booking right now.",
+      );
+    } finally {
+      setActionBookingId(null);
+    }
+  };
 
   const professionalUsers = useMemo(
     () => users.filter((user) => user.role === "professional"),
@@ -223,6 +264,9 @@ export function AdminDashboard() {
   }, [bookings]);
   const selectedBooking =
     bookings.find((booking) => booking._id === selectedBookingId) || upcomingAppointments[0] || null;
+  const completedBookings = bookings.filter((booking) =>
+    ["completed", "cancelled"].includes(booking.status),
+  );
 
   return (
     <ProtectedRoute allowedRoles={["admin"]}>
@@ -247,6 +291,16 @@ export function AdminDashboard() {
           </>
         }
       >
+        {error ? (
+          <StatusBanner tone="error" className="mb-6" title="Something needs attention">
+            {error}
+          </StatusBanner>
+        ) : null}
+        {successMessage ? (
+          <StatusBanner tone="success" className="mb-6" title="Updated">
+            {successMessage}
+          </StatusBanner>
+        ) : null}
         <div className="mb-6">
           <StatList
             items={[
@@ -514,6 +568,28 @@ export function AdminDashboard() {
                       {formatInr(selectedBooking.totalAmount || 0)}
                     </span>
                   </div>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    {selectedBooking.status === "pending" ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleBookingAction(selectedBooking._id, "confirm")}
+                        disabled={actionBookingId === selectedBooking._id}
+                        className="rounded-full bg-[#2b2b2b] px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
+                      >
+                        {actionBookingId === selectedBooking._id ? "Updating..." : "Confirm booking"}
+                      </button>
+                    ) : null}
+                    {selectedBooking.status === "confirmed" ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleBookingAction(selectedBooking._id, "complete")}
+                        disabled={actionBookingId === selectedBooking._id}
+                        className="rounded-full border border-[#ead9e8] px-4 py-2 text-xs font-medium text-[#2b2b2b] disabled:opacity-50"
+                      >
+                        {actionBookingId === selectedBooking._id ? "Updating..." : "Mark completed"}
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="rounded-[22px] bg-[#f7f5f4] p-5">
                   <p className="text-sm font-semibold text-[#2b2b2b]">Timeline</p>
@@ -576,6 +652,58 @@ export function AdminDashboard() {
                 </div>
               ))}
             </div>
+          </DashboardCard>
+
+          <DashboardCard
+            title="Past and completed bookings"
+            className="lg:col-span-12"
+            eyebrow="History"
+          >
+            {completedBookings.length ? (
+              <div className="grid gap-4 lg:grid-cols-2">
+                {completedBookings.slice(0, 8).map((booking) => {
+                  const professionalName =
+                    typeof booking.professionalId === "object"
+                      ? booking.professionalId?.name || "Assigned professional"
+                      : "Assigned professional";
+                  const clientName =
+                    typeof booking.clientId === "object"
+                      ? booking.clientId?.name || "Client"
+                      : "Client";
+
+                  return (
+                    <div key={booking._id} className="rounded-[22px] bg-[#f7f5f4] p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-[#2b2b2b]">{professionalName}</p>
+                          <p className="mt-1 text-sm text-[#7e7e7e]">Client: {clientName}</p>
+                          <p className="mt-1 text-sm text-[#7e7e7e]">
+                            {formatDateTime(booking.scheduledAt)}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${getBookingStatusTone(
+                              booking.status,
+                            )}`}
+                          >
+                            {booking.status}
+                          </span>
+                          <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[#2b2b2b]">
+                            {formatInr(booking.totalAmount || 0)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <EmptyState
+                title="No completed bookings yet"
+                description="Completed or cancelled bookings will appear here as your live operations history grows."
+              />
+            )}
           </DashboardCard>
         </DashboardGrid>
       </DashboardShell>
