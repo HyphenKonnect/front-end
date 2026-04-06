@@ -13,10 +13,16 @@ const registrationRoles: { label: string; value: SessionUser["role"] }[] = [
   { label: "Professional", value: "professional" },
 ];
 
-export function AuthForm({ mode }: { mode: "login" | "register" }) {
+export function AuthForm({
+  mode,
+  audience = "general",
+}: {
+  mode: "login" | "register";
+  audience?: "general" | "admin";
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signIn, register } = useAuth();
+  const { signIn, register, signOut } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -27,6 +33,19 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   });
 
   const next = searchParams.get("next");
+  const isAdminAudience = audience === "admin";
+  const authTitle =
+    mode === "login"
+      ? isAdminAudience
+        ? "Admin control access"
+        : "Welcome back to your care workspace."
+      : "Create your Hyphen Konnect account.";
+  const authEyebrow =
+    mode === "login"
+      ? isAdminAudience
+        ? "Admin Sign In"
+        : "Sign In"
+      : "Register";
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -44,6 +63,18 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
               role: form.role,
             });
 
+      if (mode === "login" && isAdminAudience && user.role !== "admin") {
+        signOut();
+        setError("This sign-in page is only for admin access. Clients and professionals should use /login.");
+        return;
+      }
+
+      if (mode === "login" && !isAdminAudience && user.role === "admin") {
+        signOut();
+        setError("Admin accounts should sign in from /admin.");
+        return;
+      }
+
       router.push(next || roleToDashboard(user.role));
     } catch (submissionError) {
       setError(
@@ -57,29 +88,35 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   };
 
   return (
-    <section className="bg-gradient-to-br from-white via-[#f7f5f4] to-white px-6 py-24 lg:px-[120px]">
-      <div className="mx-auto grid max-w-[1120px] gap-8 lg:grid-cols-[1.05fr_0.95fr]">
-        <div className="rounded-[32px] bg-[#2b2b2b] p-8 text-white lg:p-12">
+    <section className="bg-gradient-to-br from-white via-[#f7f5f4] to-white px-6 pb-16 pt-28 lg:px-[120px] lg:pb-20 lg:pt-32">
+      <div className="mx-auto grid max-w-[1120px] gap-6 lg:grid-cols-[1.02fr_0.98fr]">
+        <div className="rounded-[32px] bg-[#2b2b2b] p-8 text-white lg:p-10">
           <p className="mb-4 text-sm uppercase tracking-[0.24em] text-[#fcb4b3]">
-            Phase 1 Access
+            {isAdminAudience ? "Admin Access" : "Welcome Back"}
           </p>
-          <h1 className="mb-6 text-4xl font-bold leading-tight lg:text-5xl">
-            {mode === "login"
-              ? "Welcome back to your care workspace."
-              : "Create your Hyphen Konnect account."}
+          <h1 className="mb-5 text-4xl font-bold leading-tight lg:text-[54px]">
+            {authTitle}
           </h1>
           <p className="max-w-[520px] text-base leading-7 text-white/75">
-            Start with secure authentication, role-based dashboards, and the
-            foundations we need for bookings, payments, video sessions, and
-            messaging.
+            {isAdminAudience
+              ? "Use the dedicated admin entry point to manage users, bookings, finance visibility, and platform operations."
+              : "Start with secure authentication, role-based dashboards, and the foundations we need for bookings, payments, video sessions, and messaging."}
           </p>
 
           <div className="mt-10 grid gap-4">
-            {[
-              "Clients can view appointments, payments, and care updates.",
-              "Professionals get scheduling, availability, and earnings visibility.",
-              "Admins get one place to monitor users, bookings, and growth.",
-            ].map((item) => (
+            {(
+              isAdminAudience
+                ? [
+                    "Admins can monitor bookings, payments, and growth in one place.",
+                    "Use service assignment and approval tools to manage professionals.",
+                    "Keep operational access separate from client and professional sign-in.",
+                  ]
+                : [
+                    "Clients can view appointments, payments, and care updates.",
+                    "Professionals get scheduling, availability, and earnings visibility.",
+                    "Admin access is available through a separate secure sign-in page.",
+                  ]
+            ).map((item) => (
               <div
                 key={item}
                 className="flex items-start gap-3 rounded-[20px] bg-white/8 p-4"
@@ -91,16 +128,20 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           </div>
         </div>
 
-        <div className="rounded-[32px] bg-white p-8 shadow-sm lg:p-12">
-          <p className="mb-2 text-sm font-medium text-[#f56969]">
-            {mode === "login" ? "Sign In" : "Register"}
-          </p>
+        <div className="rounded-[32px] bg-white p-8 shadow-sm lg:p-10">
+          <p className="mb-2 text-sm font-medium text-[#f56969]">{authEyebrow}</p>
           <h2 className="mb-2 text-3xl font-bold text-[#2b2b2b]">
-            {mode === "login" ? "Continue your progress" : "Open your account"}
+            {mode === "login"
+              ? isAdminAudience
+                ? "Continue to the admin dashboard"
+                : "Continue your progress"
+              : "Open your account"}
           </h2>
           <p className="mb-8 text-sm leading-6 text-[#7e7e7e]">
             {mode === "login"
-              ? "Use the account connected to the Railway backend."
+              ? isAdminAudience
+                ? "This page is reserved for admin accounts only."
+                : "Use your client or professional account to continue."
               : "Choose the role you want to start with. Admin access should be issued separately, not through the public form."}
           </p>
 
@@ -209,13 +250,24 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           </form>
 
           <p className="mt-6 text-sm text-[#7e7e7e]">
-            {mode === "login" ? "Need an account?" : "Already have an account?"}{" "}
-            <Link
-              href={mode === "login" ? "/register" : "/login"}
-              className="font-medium text-[#f56969]"
-            >
-              {mode === "login" ? "Register here" : "Sign in here"}
-            </Link>
+            {mode === "login" ? (
+              <>
+                {isAdminAudience ? "Need the regular sign-in page?" : "Need an account?"}{" "}
+                <Link
+                  href={isAdminAudience ? "/login" : "/register"}
+                  className="font-medium text-[#f56969]"
+                >
+                  {isAdminAudience ? "Go to client/professional sign in" : "Register here"}
+                </Link>
+              </>
+            ) : (
+              <>
+                Already have an account?{" "}
+                <Link href="/login" className="font-medium text-[#f56969]">
+                  Sign in here
+                </Link>
+              </>
+            )}
           </p>
         </div>
       </div>
