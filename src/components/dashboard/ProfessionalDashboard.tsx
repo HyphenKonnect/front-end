@@ -44,6 +44,14 @@ type ProfessionalBooking = {
   professionalFee?: number;
 };
 
+type SpecialDateEntry = {
+  date: string;
+  type: "special_hours" | "off_day" | "emergency_leave";
+  start: string;
+  end: string;
+  note: string;
+};
+
 const weekdayLabels = [
   "monday",
   "tuesday",
@@ -94,6 +102,14 @@ export function ProfessionalDashboard() {
   });
   const [blockedDateInput, setBlockedDateInput] = useState("");
   const [blockedDates, setBlockedDates] = useState<string[]>([]);
+  const [specialDateForm, setSpecialDateForm] = useState<SpecialDateEntry>({
+    date: "",
+    type: "off_day",
+    start: "",
+    end: "",
+    note: "",
+  });
+  const [specialDates, setSpecialDates] = useState<SpecialDateEntry[]>([]);
 
   useEffect(() => {
     let ignore = false;
@@ -158,6 +174,15 @@ export function ProfessionalDashboard() {
       sunday: normaliseDayWindow(user.availability?.workingHours?.sunday),
     });
     setBlockedDates(user.availability?.blockedDates || []);
+    setSpecialDates(
+      (user.availability?.specialDates || []).map((entry) => ({
+        date: entry.date ? entry.date.slice(0, 10) : "",
+        type: entry.type || "off_day",
+        start: entry.start || "",
+        end: entry.end || "",
+        note: entry.note || "",
+      })),
+    );
   }, [user]);
 
   const refreshBookings = async () => {
@@ -168,24 +193,31 @@ export function ProfessionalDashboard() {
 
   const handleBookingAction = async (
     bookingId: string,
-    action: "confirm" | "complete",
+    action: "confirm" | "complete" | "cancel",
   ) => {
     try {
       setActionBookingId(bookingId);
       setError(null);
-      const response = await apiFetch(`/api/bookings/${bookingId}/${action}`, {
-        method: "PATCH",
-        body:
-          action === "confirm"
-            ? JSON.stringify({ paymentMethod: "manual" })
-            : undefined,
-      });
+      const response = await apiFetch(
+        `/api/bookings/${bookingId}/${action === "cancel" ? "cancel" : action}`,
+        {
+          method: "PATCH",
+          body:
+            action === "confirm"
+              ? JSON.stringify({ paymentMethod: "manual" })
+              : action === "cancel"
+                ? JSON.stringify({ reason: "Cancelled by professional" })
+                : undefined,
+        },
+      );
       await parseJsonResponse(response);
       await refreshBookings();
       setSuccessMessage(
         action === "confirm"
           ? "Booking confirmed successfully."
-          : "Booking marked as completed.",
+          : action === "cancel"
+            ? "Booking cancelled successfully."
+            : "Booking marked as completed.",
       );
     } catch (actionError) {
       setError(
@@ -230,6 +262,7 @@ export function ProfessionalDashboard() {
             timezone: "Asia/Kolkata",
             workingHours: availabilityForm,
             blockedDates,
+            specialDates,
           },
         }),
       });
@@ -265,6 +298,10 @@ export function ProfessionalDashboard() {
   const completedBookings = bookings.filter((item) =>
     ["completed", "cancelled"].includes(item.status),
   );
+  const canAddSpecialDate =
+    Boolean(specialDateForm.date) &&
+    (specialDateForm.type !== "special_hours" ||
+      Boolean(specialDateForm.start && specialDateForm.end));
 
   return (
     <ProtectedRoute allowedRoles={["professional"]}>
@@ -422,6 +459,24 @@ export function ProfessionalDashboard() {
                       >
                         {actionBookingId === selectedBooking._id ? "Updating..." : "Confirm session"}
                       </button>
+                    ) : null}
+                    {["pending", "confirmed"].includes(selectedBooking.status) ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleBookingAction(selectedBooking._id, "cancel")}
+                        disabled={actionBookingId === selectedBooking._id}
+                        className="rounded-full border border-[#ead9e8] px-4 py-2 text-xs font-medium text-[#2b2b2b] disabled:opacity-50"
+                      >
+                        {actionBookingId === selectedBooking._id ? "Updating..." : "Cancel booking"}
+                      </button>
+                    ) : null}
+                    {["pending", "confirmed"].includes(selectedBooking.status) ? (
+                      <Link
+                        href={`/booking?bookingId=${selectedBooking._id}`}
+                        className="rounded-full border border-[#ead9e8] px-4 py-2 text-xs font-medium text-[#2b2b2b]"
+                      >
+                        Reschedule
+                      </Link>
                     ) : null}
                     {selectedBooking.status === "confirmed" ? (
                       <button
@@ -718,6 +773,32 @@ export function ProfessionalDashboard() {
                       className="rounded-[14px] border border-[#ead9e8] bg-white px-3 py-2 text-sm text-[#2b2b2b] outline-none"
                     />
                   </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAvailabilityForm((current) => ({
+                          ...current,
+                          [day]: { start: "", end: "" },
+                        }))
+                      }
+                      className="rounded-full border border-[#ead9e8] bg-white px-3 py-1.5 text-xs font-medium text-[#2b2b2b]"
+                    >
+                      Mark off day
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAvailabilityForm((current) => ({
+                          ...current,
+                          [day]: { start: "09:00", end: "17:00" },
+                        }))
+                      }
+                      className="rounded-full border border-[#ead9e8] bg-white px-3 py-1.5 text-xs font-medium text-[#2b2b2b]"
+                    >
+                      Reset to 9:00-17:00
+                    </button>
+                  </div>
                 </div>
               ))}
 
@@ -759,6 +840,142 @@ export function ProfessionalDashboard() {
                   ) : (
                     <span className="text-sm text-[#7e7e7e]">
                       No blocked dates added yet.
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-[20px] bg-[#f7f5f4] p-4">
+                <p className="text-sm font-semibold text-[#2b2b2b]">Special schedule changes</p>
+                <p className="mt-2 text-sm leading-6 text-[#7e7e7e]">
+                  Add one-off special hours, emergency leave, or a full off day to block or adjust a specific date quickly.
+                </p>
+                <div className="mt-4 grid gap-3">
+                  <input
+                    type="date"
+                    value={specialDateForm.date}
+                    onChange={(event) =>
+                      setSpecialDateForm((current) => ({ ...current, date: event.target.value }))
+                    }
+                    className="rounded-[14px] border border-[#ead9e8] bg-white px-3 py-2 text-sm text-[#2b2b2b] outline-none"
+                  />
+                  <select
+                    value={specialDateForm.type}
+                    onChange={(event) =>
+                      setSpecialDateForm((current) => ({
+                        ...current,
+                        type: event.target.value as SpecialDateEntry["type"],
+                        start: event.target.value === "special_hours" ? current.start : "",
+                        end: event.target.value === "special_hours" ? current.end : "",
+                      }))
+                    }
+                    className="rounded-[14px] border border-[#ead9e8] bg-white px-3 py-2 text-sm text-[#2b2b2b] outline-none"
+                  >
+                    <option value="off_day">Off day</option>
+                    <option value="emergency_leave">Emergency leave</option>
+                    <option value="special_hours">Special hours</option>
+                  </select>
+                  {specialDateForm.type === "special_hours" ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <input
+                        type="time"
+                        value={specialDateForm.start}
+                        onChange={(event) =>
+                          setSpecialDateForm((current) => ({
+                            ...current,
+                            start: event.target.value,
+                          }))
+                        }
+                        className="rounded-[14px] border border-[#ead9e8] bg-white px-3 py-2 text-sm text-[#2b2b2b] outline-none"
+                      />
+                      <input
+                        type="time"
+                        value={specialDateForm.end}
+                        onChange={(event) =>
+                          setSpecialDateForm((current) => ({
+                            ...current,
+                            end: event.target.value,
+                          }))
+                        }
+                        className="rounded-[14px] border border-[#ead9e8] bg-white px-3 py-2 text-sm text-[#2b2b2b] outline-none"
+                      />
+                    </div>
+                  ) : null}
+                  <input
+                    value={specialDateForm.note}
+                    onChange={(event) =>
+                      setSpecialDateForm((current) => ({ ...current, note: event.target.value }))
+                    }
+                    placeholder="Optional note, e.g. conference, family emergency, shorter clinic window"
+                    className="rounded-[14px] border border-[#ead9e8] bg-white px-3 py-2 text-sm text-[#2b2b2b] outline-none"
+                  />
+                  <button
+                    type="button"
+                    disabled={!canAddSpecialDate}
+                    onClick={() => {
+                      if (!canAddSpecialDate) return;
+                      setSpecialDates((current) =>
+                        [...current.filter((item) => item.date !== specialDateForm.date), specialDateForm]
+                          .sort((left, right) => left.date.localeCompare(right.date)),
+                      );
+                      setSpecialDateForm({
+                        date: "",
+                        type: "off_day",
+                        start: "",
+                        end: "",
+                        note: "",
+                      });
+                    }}
+                    className="rounded-full bg-[#2b2b2b] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    Save special date
+                  </button>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {specialDates.length ? (
+                    specialDates.map((entry) => (
+                      <div key={`${entry.date}-${entry.type}`} className="rounded-[16px] bg-white p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-[#2b2b2b]">{entry.date}</p>
+                            <p className="mt-1 text-xs font-medium uppercase tracking-[0.12em] text-[#f56969]">
+                              {entry.type.replace("_", " ")}
+                            </p>
+                            {entry.type === "special_hours" ? (
+                              <p className="mt-2 text-sm text-[#7e7e7e]">
+                                {entry.start} - {entry.end}
+                              </p>
+                            ) : null}
+                            {entry.note ? (
+                              <p className="mt-2 text-sm text-[#7e7e7e]">{entry.note}</p>
+                            ) : null}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSpecialDates((current) =>
+                                current.filter(
+                                  (item) =>
+                                    !(
+                                      item.date === entry.date &&
+                                      item.type === entry.type &&
+                                      item.start === entry.start &&
+                                      item.end === entry.end &&
+                                      item.note === entry.note
+                                    ),
+                                ),
+                              )
+                            }
+                            className="rounded-full border border-[#ead9e8] px-3 py-1.5 text-xs font-medium text-[#2b2b2b]"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <span className="text-sm text-[#7e7e7e]">
+                      No special schedule changes added yet.
                     </span>
                   )}
                 </div>

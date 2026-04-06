@@ -26,6 +26,13 @@ export type SessionUser = {
     timezone?: string;
     workingHours?: Record<string, { start?: string; end?: string }>;
     blockedDates?: string[];
+    specialDates?: {
+      date: string;
+      type: "special_hours" | "off_day" | "emergency_leave";
+      start?: string;
+      end?: string;
+      note?: string;
+    }[];
   };
 };
 

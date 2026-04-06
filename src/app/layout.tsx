@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "../components/auth/AuthProvider";
 import { Footer } from "../components/site/Footer";
 import { Navigation } from "../components/site/Navigation";
+import { RouteScrollReset } from "../components/site/RouteScrollReset";
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -42,6 +43,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased bg-white text-[#2b2b2b]">
         <AuthProvider>
+          <RouteScrollReset />
           <Navigation />
           <main>{children}</main>
           <Footer />

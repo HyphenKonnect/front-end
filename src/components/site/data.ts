@@ -80,6 +80,13 @@ export type BackendProfessionalRecord = {
     >;
     breaks?: { start: string; end: string }[];
     blockedDates?: string[];
+    specialDates?: {
+      date: string;
+      type: "special_hours" | "off_day" | "emergency_leave";
+      start?: string;
+      end?: string;
+      note?: string;
+    }[];
   };
   isActive?: boolean;
   onboardingComplete?: boolean;

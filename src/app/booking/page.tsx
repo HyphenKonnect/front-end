@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -108,6 +108,8 @@ function BookingPageContent() {
   const searchParams = useSearchParams();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const today = useMemo(() => startOfDay(new Date()), []);
+  const timeSlotsRef = useRef<HTMLDivElement | null>(null);
+  const continueActionsRef = useRef<HTMLDivElement | null>(null);
   const initialService = searchParams.get("service") || "";
   const initialProfessionalSlug = searchParams.get("professional") || "";
   const bookingIdFromQuery = searchParams.get("bookingId") || "";
@@ -150,6 +152,7 @@ function BookingPageContent() {
 
   useEffect(() => {
     const nextService = searchParams.get("service") || "";
+    const nextProfessionalSlug = searchParams.get("professional") || "";
     if (!nextService) return;
     if (!serviceCatalog.some((service) => service.slug === nextService)) return;
 
@@ -165,7 +168,7 @@ function BookingPageContent() {
     setPaymentError("");
     setPaymentSuccessMessage("");
     setRequestSuccessMessage("");
-    setStep(2);
+    setStep(nextProfessionalSlug ? 3 : 2);
     setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
   }, [searchParams, today]);
 
@@ -289,7 +292,13 @@ function BookingPageContent() {
     );
     if (!matchedProfessional) return;
     setSelectedProfessional(matchedProfessional.id);
-    setStep(2);
+    setBookingError("");
+    setBookingSuccess(null);
+    setPaymentOrder(null);
+    setPaymentError("");
+    setPaymentSuccessMessage("");
+    setRequestSuccessMessage("");
+    setStep(3);
   }, [initialProfessionalSlug, professionalOptions, selectedProfessional]);
 
   useEffect(() => {
@@ -337,6 +346,18 @@ function BookingPageContent() {
     : isPackageBooking
       ? Boolean(selectedDate && selectedTime && selectedSecondDate && selectedSecondTime)
       : Boolean(selectedDate && selectedTime);
+
+  const scrollToTimeSlots = () => {
+    window.requestAnimationFrame(() => {
+      timeSlotsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
+  const scrollToContinueActions = () => {
+    window.requestAnimationFrame(() => {
+      continueActionsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  };
 
   useEffect(() => {
     if (!selectedPro?.backendId) {
@@ -663,7 +684,7 @@ function BookingPageContent() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1200px] px-6 py-12">
+      <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6 sm:py-12">
         {step === 1 ? (
           <>
             <h2 className="mb-3 text-[36px] font-bold text-[#2b2b2b]">Select Your Service</h2>
@@ -815,9 +836,9 @@ function BookingPageContent() {
                   ? "Choose two preferred legal session slots based on the professional’s availability."
                   : "Choose a time that works for you."}
             </p>
-            <div className="grid gap-8 xl:grid-cols-[1.1fr_0.95fr]">
-              <div className="rounded-[32px] bg-white p-6 shadow-[0_18px_45px_rgba(29,25,22,0.06)] sm:p-8">
-                <div className="mb-6 flex flex-wrap items-center gap-3">
+            <div className="grid gap-6 xl:grid-cols-[1.1fr_0.95fr] xl:gap-8">
+              <div className="rounded-[28px] bg-white p-4 shadow-[0_18px_45px_rgba(29,25,22,0.06)] sm:rounded-[32px] sm:p-8">
+                <div className="mb-5 flex flex-wrap items-center gap-3 sm:mb-6">
                   <MonthSelect
                     value={visibleMonth.getMonth()}
                     onChange={(month) =>
@@ -856,13 +877,13 @@ function BookingPageContent() {
                   </div>
                 </div>
 
-                <div className="mb-6 inline-flex rounded-full bg-[#fff1f0] px-4 py-1 text-sm font-medium text-[#6a6a6a]">
+                <div className="mb-5 inline-flex rounded-full bg-[#fff1f0] px-4 py-1 text-sm font-medium text-[#6a6a6a] sm:mb-6">
                   {selectedPro?.backendAvailability?.timezone ||
                     availabilityData?.availability?.timezone ||
                     "Asia/Calcutta"}
                 </div>
 
-                <div className="grid grid-cols-7 gap-3 text-center text-[15px] font-medium text-[#344256]">
+                <div className="grid grid-cols-7 gap-2 text-center text-[13px] font-medium text-[#344256] sm:gap-3 sm:text-[15px]">
                   {WEEKDAY_LABELS.map((label) => (
                     <div key={label} className="py-2">
                       {label}
@@ -870,7 +891,7 @@ function BookingPageContent() {
                   ))}
                 </div>
 
-                <div className="mt-3 grid grid-cols-7 gap-3">
+                <div className="mt-3 grid grid-cols-7 gap-2 sm:gap-3">
                   {calendarDays.map((day) => {
                     const inCurrentMonth = isSameMonth(day, visibleMonth);
                     const selectable = isDateSelectable(
@@ -901,8 +922,9 @@ function BookingPageContent() {
                           setBookingError("");
                           setBookingSuccess(null);
                           setRequestSuccessMessage("");
+                          scrollToTimeSlots();
                         }}
-                        className={`relative min-h-[58px] rounded-[12px] border text-[28px] font-medium transition sm:min-h-[72px] ${
+                        className={`relative min-h-[52px] rounded-[14px] border text-[24px] font-medium transition sm:min-h-[72px] sm:rounded-[12px] sm:text-[28px] ${
                           selected
                             ? "border-[#f56a6a] bg-[#f56a6a] text-white"
                             : selectable
@@ -910,7 +932,7 @@ function BookingPageContent() {
                               : "border-transparent bg-[#eceef4] text-[#c2c8d2]"
                         } ${!inCurrentMonth ? "opacity-70" : ""}`}
                       >
-                        <span className="text-[18px]">{day.getDate()}</span>
+                        <span className="text-[17px] sm:text-[18px]">{day.getDate()}</span>
                         {selected ? (
                           <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-white/80" />
                         ) : null}
@@ -920,9 +942,9 @@ function BookingPageContent() {
                 </div>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-5 sm:space-y-6">
                 {selectedPro ? (
-                  <div className="rounded-[32px] bg-white p-6 shadow-[0_18px_45px_rgba(29,25,22,0.06)]">
+                  <div className="rounded-[28px] bg-white p-5 shadow-[0_18px_45px_rgba(29,25,22,0.06)] sm:rounded-[32px] sm:p-6">
                     <div className="flex items-center gap-4">
                       <Image
                         src={selectedPro.image}
@@ -942,11 +964,14 @@ function BookingPageContent() {
                   </div>
                 ) : null}
 
-                <div className="rounded-[32px] bg-white p-6 shadow-[0_18px_45px_rgba(29,25,22,0.06)] sm:p-8">
+                <div
+                  ref={timeSlotsRef}
+                  className="rounded-[28px] bg-white p-5 shadow-[0_18px_45px_rgba(29,25,22,0.06)] sm:rounded-[32px] sm:p-8"
+                >
                   <div className="mb-4 flex items-center justify-between gap-4">
                     <div>
-                      <h3 className="text-[28px] font-bold text-[#2b2b2b]">Available Time Slots</h3>
-                      <p className="text-sm text-[#7e7e7e]">
+                      <h3 className="text-[22px] font-bold text-[#2b2b2b] sm:text-[28px]">Available Time Slots</h3>
+                      <p className="text-sm leading-6 text-[#7e7e7e]">
                         {isRequestOnly
                           ? "Tell us what you need and we’ll route it to the legal team."
                           : calendarTargetDate
@@ -1037,7 +1062,7 @@ function BookingPageContent() {
                       </div>
                     </div>
                   ) : calendarTargetDate && availableSlots.length ? (
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
                       {availableSlots.map((slot) => (
                         <button
                           key={slot}
@@ -1051,8 +1076,9 @@ function BookingPageContent() {
                             setBookingError("");
                             setBookingSuccess(null);
                             setRequestSuccessMessage("");
+                            scrollToContinueActions();
                           }}
-                          className={`rounded-[18px] border px-5 py-4 text-center text-[24px] font-medium transition ${
+                          className={`rounded-[18px] border px-4 py-3 text-center text-[18px] font-medium transition sm:px-5 sm:py-4 sm:text-[24px] ${
                             calendarTargetTime === slot
                               ? "border-[#f56a6a] bg-[#f56a6a] text-white"
                               : "border-transparent bg-[#f4f0ee] text-[#1f2d3d] hover:bg-[#ffe9e7]"
@@ -1352,12 +1378,15 @@ function BookingPageContent() {
           </>
         ) : null}
 
-        <div className="mt-10 flex items-center justify-between">
+        <div
+          ref={continueActionsRef}
+          className="mt-8 flex items-center justify-between gap-4 sm:mt-10"
+        >
           <button
             type="button"
             onClick={() => setStep((current) => Math.max(1, current - 1))}
             disabled={step === 1 || submitting || loadingRescheduleBooking}
-            className="rounded-full border border-[#2b2b2b] px-6 py-3 text-sm font-medium text-[#2b2b2b] disabled:opacity-40"
+            className="rounded-full border border-[#2b2b2b] px-5 py-3 text-sm font-medium text-[#2b2b2b] disabled:opacity-40 sm:px-6"
           >
             Back
           </button>
@@ -1372,9 +1401,9 @@ function BookingPageContent() {
               (step === 3 && !canMoveToStepFour) ||
               step === 4
             }
-            className="rounded-full bg-[#2b2b2b] px-6 py-3 text-sm font-medium text-white disabled:opacity-40"
+            className="rounded-full bg-[#2b2b2b] px-5 py-3 text-sm font-medium text-white disabled:opacity-40 sm:px-6"
           >
-            Next
+            Continue
           </button>
         </div>
       </div>
@@ -1516,13 +1545,30 @@ function isDateSelectable(
 function getLiveSlotsForDate(date: Date, availabilityData: LiveAvailabilityResponse) {
   const workingHours = availabilityData.availability?.workingHours;
   const blockedDates = availabilityData.availability?.blockedDates || [];
+  const specialDates = availabilityData.availability?.specialDates || [];
   const bookedSlots = availabilityData.bookedSlots || [];
 
   if (!workingHours) return [];
   if (blockedDates.some((value) => isSameDay(new Date(value), date))) return [];
 
+  const matchingSpecialDate = specialDates.find((entry) =>
+    isSameDay(new Date(entry.date), date),
+  );
+  if (
+    matchingSpecialDate &&
+    ["off_day", "emergency_leave"].includes(matchingSpecialDate.type)
+  ) {
+    return [];
+  }
+
   const dayKey = DAY_NAMES[date.getDay()].toLowerCase();
-  const window = workingHours[dayKey];
+  const window =
+    matchingSpecialDate?.type === "special_hours"
+      ? {
+          start: matchingSpecialDate.start,
+          end: matchingSpecialDate.end,
+        }
+      : workingHours[dayKey];
   if (!window?.start || !window?.end) return [];
 
   const ranges = window.slots?.length
