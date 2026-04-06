@@ -709,6 +709,7 @@ function BookingPageContent() {
                     setPaymentSuccessMessage("");
                     setRequestSuccessMessage("");
                     setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+                    scrollToContinueActions();
                   }}
                   className={`rounded-[24px] bg-white p-8 text-left transition-all ${
                     selectedService === service.slug
