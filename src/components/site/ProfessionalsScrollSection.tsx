@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowUpRight, Brain, CheckCircle, Scale, Stethoscope } from "lucide-react";
@@ -158,9 +159,11 @@ export function ProfessionalsScrollSection() {
                           className="group relative h-[280px] w-[220px] flex-shrink-0 overflow-hidden rounded-[24px] shadow-lg"
                         >
                           <div className="h-full bg-[linear-gradient(180deg,#ece1d7_0%,#f7f2ed_100%)] p-3 pb-0">
-                            <img
+                            <Image
                               src={professional.image}
                               alt={professional.name}
+                              width={440}
+                              height={560}
                               className="h-full w-full rounded-t-[20px] object-cover object-[center_20%] transition-transform duration-500 group-hover:scale-105"
                             />
                           </div>

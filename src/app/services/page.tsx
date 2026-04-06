@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { serviceCatalog } from "../../components/site/data";
@@ -54,9 +55,11 @@ export default function ServicesPage() {
             >
               <div className={index % 2 === 1 ? "lg:col-start-2" : ""}>
                 <div className="relative h-full overflow-hidden rounded-[30px]">
-                  <img
+                  <Image
                     src={service.image}
                     alt={service.title}
+                    width={1200}
+                    height={900}
                     className="aspect-[4/3] h-full w-full object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#1f1b18]/50 via-transparent to-transparent" />

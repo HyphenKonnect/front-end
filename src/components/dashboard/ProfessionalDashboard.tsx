@@ -13,6 +13,7 @@ import {
 } from "../../lib/booking-helpers";
 import { formatDateTime, formatInr } from "../../lib/formatting";
 import { StatusBanner } from "../ui/StatusBanner";
+import { DashboardChatPanel } from "./DashboardChatPanel";
 import {
   DashboardCard,
   DashboardGrid,
@@ -772,6 +773,18 @@ export function ProfessionalDashboard() {
                 {savingProfile ? "Saving..." : "Save profile and availability"}
               </button>
             </div>
+          </DashboardCard>
+
+          <DashboardCard
+            title="Messages"
+            className="lg:col-span-12"
+            eyebrow="Client communication"
+          >
+            <DashboardChatPanel
+              title="Session chats"
+              description="Stay in touch with clients around confirmed bookings without moving the conversation outside the platform."
+              emptyDescription="Client conversations will appear here once a booking chat is opened."
+            />
           </DashboardCard>
         </DashboardGrid>
       </DashboardShell>

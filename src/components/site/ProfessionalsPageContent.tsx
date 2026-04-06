@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Search, Star } from "lucide-react";
@@ -136,9 +137,11 @@ export function ProfessionalsPageContent({
                 className="overflow-hidden rounded-[28px] border border-[#e9e2df] bg-white shadow-[0_14px_36px_rgba(29,25,22,0.06)]"
               >
                 <div className="bg-[#f4efeb] p-3">
-                  <img
+                  <Image
                     src={professional.image}
                     alt={professional.name}
+                    width={720}
+                    height={840}
                     className="h-[280px] w-full rounded-[18px] object-cover object-[center_20%]"
                   />
                 </div>

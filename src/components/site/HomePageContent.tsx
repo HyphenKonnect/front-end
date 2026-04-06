@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -358,9 +359,11 @@ export function HomePageContent() {
             className="relative"
           >
             <div className="overflow-hidden rounded-[32px] shadow-2xl">
-              <img
+              <Image
                 src="https://images.unsplash.com/photo-1659353888906-adb3e0041693?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080"
                 alt="Professional care"
+                width={1080}
+                height={810}
                 className="aspect-[4/3] w-full object-cover"
               />
             </div>
@@ -687,9 +690,11 @@ export function HomePageContent() {
                 className="group overflow-hidden rounded-[24px] bg-white shadow-lg transition-all hover:-translate-y-1 hover:shadow-2xl"
               >
                 <div className="relative h-[240px] overflow-hidden">
-                  <img
+                  <Image
                     src={service.image}
                     alt={service.title}
+                    width={1080}
+                    height={720}
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60" />
@@ -1084,9 +1089,11 @@ function JourneyIntakeScreen() {
 function JourneyVideoScreen() {
   return (
     <div className="relative h-full overflow-hidden bg-[#111]">
-      <img
+      <Image
         src="https://images.unsplash.com/photo-1517841905240-472988babdf9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=900"
         alt="Session preview"
+        fill
+        sizes="340px"
         className="h-full w-full object-cover"
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/45" />
@@ -1099,9 +1106,11 @@ function JourneyVideoScreen() {
         <span className="text-xl">⌄</span>
       </div>
       <div className="absolute bottom-28 right-6 overflow-hidden rounded-[16px] border border-white/20 shadow-xl">
-        <img
+        <Image
           src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400"
           alt="Participant preview"
+          width={184}
+          height={240}
           className="h-[120px] w-[92px] object-cover"
         />
       </div>
@@ -1128,9 +1137,11 @@ function JourneyDashboardScreen() {
       <div className="rounded-[28px] border border-white bg-[#f6f1f1] px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
         <div className="mb-6 flex items-center justify-between rounded-[16px] bg-white px-4 py-3 shadow-sm">
           <div className="flex items-center gap-3">
-            <img
+            <Image
               src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=240"
               alt="User avatar"
+              width={80}
+              height={80}
               className="h-10 w-10 rounded-full object-cover"
             />
             <span className="text-[12px] font-medium text-[#2b2b2b]">

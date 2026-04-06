@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Award, CheckCircle2, Globe2, MapPin, Sparkles } from "lucide-react";
 import { buildProfessionalCtaHref, type ProfessionalProfile } from "./data";
@@ -22,9 +23,11 @@ export function ProfessionalProfilePage({
 
           <div className="grid gap-10 lg:grid-cols-[0.95fr_1.05fr]">
             <div className="overflow-hidden rounded-[32px] bg-[linear-gradient(180deg,#ece1d7_0%,#f7f2ed_100%)] p-4 pb-0 shadow-sm">
-              <img
+              <Image
                 src={professional.image}
                 alt={professional.name}
+                width={920}
+                height={1200}
                 className="h-full min-h-[460px] w-full rounded-t-[28px] object-cover object-[center_20%]"
               />
             </div>
@@ -234,9 +237,11 @@ export function ProfessionalProfilePage({
                 className="overflow-hidden rounded-[24px] bg-[#f7f5f4] shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
               >
                 <div className="bg-[linear-gradient(180deg,#ece1d7_0%,#f7f2ed_100%)] p-3 pb-0">
-                  <img
+                  <Image
                     src={item.image}
                     alt={item.name}
+                    width={720}
+                    height={820}
                     className="h-[255px] w-full rounded-t-[22px] object-cover object-[center_20%]"
                   />
                 </div>

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
@@ -65,9 +66,11 @@ export default async function ServiceDetailPage(props: PageProps<"/services/[slu
       <section className="bg-white px-6 py-16 lg:px-[120px] lg:py-20">
         <div className="mx-auto grid max-w-[1440px] gap-10 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="relative overflow-hidden rounded-[34px] shadow-[0_24px_60px_rgba(29,25,22,0.12)]">
-            <img
+            <Image
               src={service.image}
               alt={service.title}
+              width={1280}
+              height={960}
               className="aspect-[4/3] w-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#1d1916]/55 via-transparent to-transparent" />
@@ -167,9 +170,11 @@ export default async function ServiceDetailPage(props: PageProps<"/services/[slu
                 className="overflow-hidden rounded-[28px] border border-[#efe7ec] bg-white shadow-[0_18px_42px_rgba(34,24,34,0.06)]"
               >
                 <div className="bg-[linear-gradient(180deg,#ece1d7_0%,#f7f2ed_100%)] p-4 pb-0">
-                  <img
+                  <Image
                     src={professional.image}
                     alt={professional.name}
+                    width={720}
+                    height={860}
                     className="h-[290px] w-full rounded-t-[24px] object-cover object-[center_20%]"
                   />
                 </div>
@@ -200,10 +205,7 @@ export default async function ServiceDetailPage(props: PageProps<"/services/[slu
 
                   <div className="mt-5 flex items-center justify-between gap-4">
                     <div className="min-w-0">
-                      <p className="text-[13px] font-medium uppercase tracking-[0.14em] text-[#7e7e7e]">
-                        Fee
-                      </p>
-                      <div className="mt-1">{renderRate(professional.rate)}</div>
+                      {renderRate(professional.rate)}
                     </div>
 
                     <div className="flex shrink-0 items-center gap-3">

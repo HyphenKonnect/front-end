@@ -14,6 +14,7 @@ import {
 import { formatDateTime, formatInr } from "../../lib/formatting";
 import { openRazorpayCheckout, type RazorpayOrderPayload } from "../../lib/razorpay";
 import { StatusBanner } from "../ui/StatusBanner";
+import { DashboardChatPanel } from "./DashboardChatPanel";
 import {
   DashboardCard,
   DashboardGrid,
@@ -684,6 +685,18 @@ export function ClientDashboard() {
                 description="Completed or cancelled sessions will appear here once your booking history starts growing."
               />
             )}
+          </DashboardCard>
+
+          <DashboardCard
+            title="Messages"
+            className="lg:col-span-12"
+            eyebrow="Client-professional chat"
+          >
+            <DashboardChatPanel
+              title="Session conversations"
+              description="Use this space to share practical updates with your professional before or after a confirmed session."
+              emptyDescription="Your booking-related chats will appear here once you start messaging around a session."
+            />
           </DashboardCard>
         </DashboardGrid>
       </DashboardShell>

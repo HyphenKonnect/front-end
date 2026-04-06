@@ -54,6 +54,45 @@ export type NotificationItem = {
   };
 };
 
+export type ChatSessionSummary = {
+  bookingId: string;
+  scheduledAt: string;
+  status: string;
+  serviceId?: string;
+  clientName?: string;
+  professionalName?: string;
+  hasSession: boolean;
+  messageCount: number;
+  lastMessageAt?: string | null;
+  lastMessagePreview?: string;
+  unreadCount: number;
+};
+
+export type ChatMessage = {
+  senderId: string;
+  senderRole: "client" | "professional" | "admin";
+  senderName: string;
+  content: string;
+  createdAt: string;
+};
+
+export type ChatSessionRecord = {
+  _id: string;
+  bookingId: string;
+  clientId: string;
+  professionalId: string;
+  status: "active" | "closed";
+  messageCount: number;
+  lastMessageAt?: string;
+  lastMessagePreview?: string;
+  unreadCounts?: {
+    client?: number;
+    professional?: number;
+    admin?: number;
+  };
+  messages: ChatMessage[];
+};
+
 export function getStoredToken() {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("token");

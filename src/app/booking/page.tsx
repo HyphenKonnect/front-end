@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -10,7 +11,6 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import {
-  buildProfessionalCtaHref,
   mapBackendProfessionalToDirectory,
   professionals,
   serviceCatalog,
@@ -306,9 +306,8 @@ function BookingPageContent() {
   const bookingMode = fallbackProfile?.bookingMode || selectedPro?.bookingMode || "standard";
   const isRequestOnly = bookingMode === "request";
   const isPackageBooking = bookingMode === "package";
-  const packageSessionCount = fallbackProfile?.packageSessions || selectedPro?.packageSessions || 1;
-  const calendarTargetDate =
-    isPackageBooking && activePackageSlot === 2 ? selectedSecondDate : selectedDate;
+    const calendarTargetDate =
+      isPackageBooking && activePackageSlot === 2 ? selectedSecondDate : selectedDate;
   const calendarTargetTime =
     isPackageBooking && activePackageSlot === 2 ? selectedSecondTime : selectedTime;
 
@@ -756,9 +755,11 @@ function BookingPageContent() {
                   }`}
                 >
                   <div className="bg-[#f4efeb] p-3">
-                    <img
+                    <Image
                       src={pro.image}
                       alt={pro.name}
+                      width={900}
+                      height={600}
                       className="h-[220px] w-full rounded-[18px] object-cover object-[center_20%]"
                     />
                   </div>
@@ -923,9 +924,11 @@ function BookingPageContent() {
                 {selectedPro ? (
                   <div className="rounded-[32px] bg-white p-6 shadow-[0_18px_45px_rgba(29,25,22,0.06)]">
                     <div className="flex items-center gap-4">
-                      <img
+                      <Image
                         src={selectedPro.image}
                         alt={selectedPro.name}
+                        width={128}
+                        height={128}
                         className="h-16 w-16 rounded-[20px] object-cover"
                       />
                       <div>
@@ -1097,9 +1100,11 @@ function BookingPageContent() {
               <div className="rounded-[32px] bg-white p-8 shadow-[0_18px_45px_rgba(29,25,22,0.06)]">
                 <div className="mb-6 flex items-center gap-4">
                   {selectedPro ? (
-                    <img
+                    <Image
                       src={selectedPro.image}
                       alt={selectedPro.name}
+                      width={160}
+                      height={160}
                       className="h-20 w-20 rounded-[24px] object-cover"
                     />
                   ) : null}

@@ -1,22 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Send } from "lucide-react";
 import { contactCards } from "../../components/site/data";
 import { GradientCta, PageHero, SurfaceCard } from "../../components/site/page-primitives";
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    service: "Mental Wellness",
-    message: "",
-  });
+  const [form, setForm] = useState(() => {
+    if (typeof window === "undefined") {
+      return {
+        name: "",
+        email: "",
+        phone: "",
+        service: "Mental Wellness",
+        message: "",
+      };
+    }
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const service = params.get("service");
     const professional = params.get("professional");
@@ -38,7 +39,7 @@ export default function ContactPage() {
           .join(" ")
       : message || "";
 
-    setForm({
+    return {
       name: params.get("name") || "",
       email: params.get("email") || "",
       phone: params.get("phone") || "",
@@ -53,8 +54,8 @@ export default function ContactPage() {
                 ? "Wellness Programs"
                 : service || "Mental Wellness",
       message: requestMessage,
-    });
-  }, []);
+    };
+  });
 
   return (
     <div className="pt-20">
