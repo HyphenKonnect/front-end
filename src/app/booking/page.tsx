@@ -110,6 +110,7 @@ function BookingPageContent() {
   const today = useMemo(() => startOfDay(new Date()), []);
   const timeSlotsRef = useRef<HTMLDivElement | null>(null);
   const continueActionsRef = useRef<HTMLDivElement | null>(null);
+  const continueButtonRef = useRef<HTMLButtonElement | null>(null);
   const initialService = searchParams.get("service") || "";
   const initialProfessionalSlug = searchParams.get("professional") || "";
   const bookingIdFromQuery = searchParams.get("bookingId") || "";
@@ -354,9 +355,9 @@ function BookingPageContent() {
   };
 
   const scrollToContinueActions = () => {
-    window.requestAnimationFrame(() => {
-      continueActionsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    });
+    window.setTimeout(() => {
+      continueButtonRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 120);
   };
 
   useEffect(() => {
@@ -1392,6 +1393,7 @@ function BookingPageContent() {
             Back
           </button>
           <button
+            ref={continueButtonRef}
             type="button"
             onClick={() => setStep((current) => Math.min(4, current + 1))}
             disabled={
