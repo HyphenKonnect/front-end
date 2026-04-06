@@ -15,7 +15,7 @@ export function DashboardShell({
   children: ReactNode;
 }) {
   return (
-    <section className="bg-[#fcfbfb] px-6 py-24 lg:px-[120px]">
+    <section className="bg-[#fcfbfb] px-6 pb-24 pt-32 sm:pt-36 lg:px-[120px] lg:pt-40">
       <div className="mx-auto max-w-[1440px]">
         <div className="mb-10 flex flex-col gap-6 rounded-[32px] bg-white p-8 shadow-sm lg:flex-row lg:items-end lg:justify-between lg:p-10">
           <div>
