@@ -19,11 +19,11 @@ function renderRate(rate: string) {
   const sessionMatch = rate.match(/^Rs\.?\s*([\d,]+)\s*\/\s*session$/i);
   if (sessionMatch) {
     return (
-      <div>
-        <p className="text-[18px] font-bold leading-tight text-[#2b2b2b]">
+      <div className="flex flex-col gap-1">
+        <p className="text-[15px] font-bold leading-tight text-[#2b2b2b] sm:text-[18px]">
           Rs. {sessionMatch[1]}
         </p>
-        <p className="mt-1 text-[12px] font-medium uppercase tracking-[0.12em] text-[#7e7e7e]">
+        <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[#7e7e7e] sm:text-[12px]">
           Per session
         </p>
       </div>
@@ -31,7 +31,7 @@ function renderRate(rate: string) {
   }
 
   return (
-    <p className="text-[16px] font-bold leading-tight text-[#2b2b2b]">
+    <p className="text-[14px] font-bold leading-tight text-[#2b2b2b] sm:text-[16px]">
       {rate.replace(/^Rs\.?\s*/i, "Rs. ")}
     </p>
   );
@@ -186,16 +186,16 @@ export function ProfessionalsPageContent({
                     ) : null}
                   </div>
 
-                  <div className="flex flex-col gap-3 border-t border-[#eee6e3] pt-5 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
+                  <div className="border-t border-[#eee6e3] pt-5">
+                    <div className="mb-4 min-w-0">
                       {renderRate(professional.rate)}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 sm:w-auto sm:min-w-[240px]">
+                    <div className="grid grid-cols-2 gap-3">
                       {professional.slug ? (
                         <Link
                           href={`/professionals/${professional.slug}`}
-                          className="inline-flex min-h-[46px] items-center justify-center rounded-full border border-[#2b2b2b]/20 px-3 py-2 text-center text-[13px] font-semibold leading-tight text-[#2b2b2b] sm:min-h-[48px] sm:px-4"
+                          className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-[#2b2b2b]/20 px-3 py-2 text-center text-[12px] font-semibold leading-tight text-[#2b2b2b] sm:min-h-[48px] sm:px-4 sm:text-[13px]"
                         >
                           View Profile
                         </Link>
@@ -204,7 +204,7 @@ export function ProfessionalsPageContent({
                       )}
                       <Link
                         href={buildProfessionalCtaHref(professional)}
-                        className="inline-flex min-h-[46px] items-center justify-center rounded-full bg-[#2b2b2b] px-3 py-2 text-center text-[13px] font-semibold leading-tight text-white shadow-sm sm:min-h-[48px] sm:px-4"
+                        className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-[#2b2b2b] px-3 py-2 text-center text-[12px] font-semibold leading-tight text-white shadow-sm sm:min-h-[48px] sm:px-4 sm:text-[13px]"
                       >
                         {professional.bookingMode === "request"
                           ? "Request Session"
