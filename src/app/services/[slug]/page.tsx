@@ -1,8 +1,34 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
-import { serviceCatalog } from "../../../components/site/data";
+import {
+  buildProfessionalCtaHref,
+  professionals,
+  serviceCatalog,
+} from "../../../components/site/data";
 import { GradientCta, PageHero } from "../../../components/site/page-primitives";
+
+function renderRate(rate: string) {
+  const sessionMatch = rate.match(/^Rs\.?\s*([\d,]+)\s*\/\s*session$/i);
+  if (sessionMatch) {
+    return (
+      <div>
+        <p className="text-[18px] font-bold leading-tight text-[#2b2b2b]">
+          Rs. {sessionMatch[1]}
+        </p>
+        <p className="mt-1 text-[12px] font-medium uppercase tracking-[0.12em] text-[#7e7e7e]">
+          Per session
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <p className="text-[16px] font-bold leading-tight text-[#2b2b2b]">
+      {rate}
+    </p>
+  );
+}
 
 export function generateStaticParams() {
   return serviceCatalog.map((service) => ({ slug: service.slug }));
@@ -13,6 +39,19 @@ export default async function ServiceDetailPage(props: PageProps<"/services/[slu
   const service = serviceCatalog.find((item) => item.slug === slug);
 
   if (!service) notFound();
+
+  const category =
+    slug === "mental-wellness"
+      ? "therapist"
+      : slug === "medical-consultation"
+        ? "doctor"
+        : slug === "legal-guidance"
+          ? "legal"
+          : "wellness";
+
+  const serviceProfessionals = professionals.filter(
+    (professional) => professional.category === category,
+  );
 
   return (
     <div className="pt-20">
@@ -94,6 +133,101 @@ export default async function ServiceDetailPage(props: PageProps<"/services/[slu
                 Browse Professionals
               </Link>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#fcfbfb] px-6 py-16 lg:px-[120px] lg:py-20">
+        <div className="mx-auto max-w-[1440px]">
+          <div className="mb-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="mb-3 text-sm uppercase tracking-[0.2em] text-[#7e7e7e]">
+                Matching Professionals
+              </p>
+              <h2 className="text-[34px] font-bold tracking-[-0.03em] text-[#2b2b2b] lg:text-[40px]">
+                Meet the specialists for {service.title}
+              </h2>
+              <p className="mt-3 max-w-[760px] text-[16px] leading-7 text-[#6e6e6e]">
+                Choose from the professionals who currently support this care path,
+                then either view their profile or start booking right away.
+              </p>
+            </div>
+            <Link
+              href={`/professionals?category=${category}`}
+              className="text-sm font-medium text-[#f56969]"
+            >
+              View full directory
+            </Link>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {serviceProfessionals.map((professional) => (
+              <div
+                key={professional.slug}
+                className="overflow-hidden rounded-[28px] border border-[#efe7ec] bg-white shadow-[0_18px_42px_rgba(34,24,34,0.06)]"
+              >
+                <div className="bg-[linear-gradient(180deg,#ece1d7_0%,#f7f2ed_100%)] p-4 pb-0">
+                  <img
+                    src={professional.image}
+                    alt={professional.name}
+                    className="h-[290px] w-full rounded-t-[24px] object-cover object-[center_20%]"
+                  />
+                </div>
+
+                <div className="p-6">
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-[24px] font-bold tracking-[-0.03em] text-[#2b2b2b]">
+                        {professional.name}
+                      </h3>
+                      <p className="mt-1 text-[15px] font-medium text-[#f56969]">
+                        {professional.specialty}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-[#e7f8eb] px-3 py-1 text-xs font-semibold text-[#3e9560]">
+                      {professional.available ? "Available" : "Waitlist"}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 border-b border-[#f1e7ec] pb-5 text-[14px] text-[#6c6270]">
+                    <div>
+                      <p>{professional.experience} of experience</p>
+                    </div>
+                    <div className="text-right">
+                      <p>{professional.location}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-medium uppercase tracking-[0.14em] text-[#7e7e7e]">
+                        Fee
+                      </p>
+                      <div className="mt-1">{renderRate(professional.rate)}</div>
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-3">
+                      <Link
+                        href={`/professionals/${professional.slug}`}
+                        className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-[#d8d1d7] px-5 text-sm font-semibold text-[#2b2b2b] transition-colors hover:border-[#2b2b2b]"
+                      >
+                        View Profile
+                      </Link>
+                      <Link
+                        href={buildProfessionalCtaHref(professional)}
+                        className="inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#2b2b2b] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#111111]"
+                      >
+                        {professional.bookingMode === "request"
+                          ? "Request Session"
+                          : professional.bookingMode === "package"
+                            ? "Book Package"
+                            : "Book Now"}
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>

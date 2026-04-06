@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
@@ -18,6 +19,7 @@ import {
   TrendingUp,
   Phone,
   Lock,
+  X,
 } from "lucide-react";
 import { ProfessionalsScrollSection } from "./ProfessionalsScrollSection";
 import { Button } from "../ui/Button";
@@ -204,9 +206,97 @@ const faqs = [
   },
 ];
 
+const supportOptions = [
+  {
+    label: "Mental / Emotional Health",
+    description: "Therapy, counselling, trauma support, and emotional care.",
+    destination: "/services/mental-wellness",
+    actionLabel: "Go to Therapy Services",
+  },
+  {
+    label: "Medical / Physical Health",
+    description: "Online consultations for physical and medical concerns.",
+    destination: "/services/medical-consultation",
+    actionLabel: "Go to Medical Services",
+  },
+  {
+    label: "Legal Help",
+    description: "Legal guidance, rights support, and next-step advice.",
+    destination: "/services/legal-guidance",
+    actionLabel: "Go to Legal Services",
+  },
+  {
+    label: "Wellness Services",
+    description: "Holistic wellness support for mind, body, and routine.",
+    destination: "/services/wellness-programs",
+    actionLabel: "Go to Wellness Services",
+  },
+  {
+    label: "I'm Not Sure",
+    description: "We can help you decide where to begin.",
+    destination: "/#contact",
+    actionLabel: "Go to Contact Us",
+  },
+];
+
+const urgencyOptions = [
+  "Not urgent",
+  "Somewhat urgent",
+  "Very urgent",
+  "Emergency",
+] as const;
+
+type SupportLabel = (typeof supportOptions)[number]["label"];
+type UrgencyLabel = (typeof urgencyOptions)[number];
+
 export function HomePageContent() {
+  const router = useRouter();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [activeJourneyStep, setActiveJourneyStep] = useState(1);
+  const [isGuidedModalOpen, setIsGuidedModalOpen] = useState(false);
+  const [guidedStep, setGuidedStep] = useState(1);
+  const [selectedSupport, setSelectedSupport] = useState<SupportLabel | null>(
+    null,
+  );
+  const [selectedUrgency, setSelectedUrgency] = useState<UrgencyLabel | null>(
+    null,
+  );
+
+  const selectedSupportOption = supportOptions.find(
+    (option) => option.label === selectedSupport,
+  );
+
+  const resetGuidedFlow = () => {
+    setIsGuidedModalOpen(false);
+    setGuidedStep(1);
+    setSelectedSupport(null);
+    setSelectedUrgency(null);
+  };
+
+  const handleGuidedNext = () => {
+    if (guidedStep === 1 && selectedSupport) {
+      setGuidedStep(2);
+      return;
+    }
+
+    if (guidedStep === 2 && selectedUrgency) {
+      if (selectedUrgency === "Emergency") {
+        setGuidedStep(3);
+        return;
+      }
+
+      if (selectedSupportOption) {
+        resetGuidedFlow();
+        router.push(selectedSupportOption.destination);
+      }
+    }
+  };
+
+  const handleGuidedPrevious = () => {
+    if (guidedStep > 1) {
+      setGuidedStep((current) => current - 1);
+    }
+  };
 
   return (
     <div className="bg-[#f7f5f4] pt-20">
@@ -239,12 +329,12 @@ export function HomePageContent() {
             </p>
             <div className="mb-12 flex flex-col gap-4 sm:flex-row">
               <Button
-                href="/booking"
+                onClick={() => setIsGuidedModalOpen(true)}
                 size="lg"
                 className="min-w-[210px] px-9 py-4 text-[16px] font-semibold shadow-[0_18px_40px_rgba(245,105,105,0.25)]"
                 icon={<ArrowRight className="h-5 w-5" />}
               >
-                Book a Session
+                Begin Your Healing Journey
               </Button>
               <Button
                 href="/services"
@@ -288,6 +378,284 @@ export function HomePageContent() {
           </motion.div>
         </div>
       </section>
+
+      {isGuidedModalOpen ? (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#1f2334]/58 px-3 py-4 backdrop-blur-[2px] sm:px-4 sm:py-6">
+          <motion.div
+            initial={{ opacity: 0, y: 18, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            className="relative w-full max-w-[560px] overflow-hidden rounded-[20px] bg-white p-5 shadow-[0_28px_80px_rgba(20,33,61,0.24)] sm:max-w-[620px] sm:rounded-[24px] sm:p-6"
+          >
+              <button
+                type="button"
+                onClick={resetGuidedFlow}
+                className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/70 bg-[#222222] text-white shadow-sm transition-colors hover:bg-[#111111] sm:right-4 sm:top-4 sm:h-10 sm:w-10"
+                aria-label="Close support guide"
+              >
+                <X className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
+
+              <div className="max-h-[78vh] overflow-y-auto pr-8 sm:pr-10">
+              <div className="pr-2">
+                <h3 className="max-w-[430px] text-[20px] font-bold leading-tight text-[#0f2147] sm:text-[30px]">
+                  Let&apos;s find the right support for you
+                </h3>
+                <p className="mt-2 text-[13px] leading-5 text-[#8a93a6] sm:text-[15px]">
+                  Answer a few questions so we can guide you better.
+                </p>
+              </div>
+
+              <div className="mt-5 flex items-center gap-2 sm:mt-6 sm:gap-4">
+              {[1, 2, 3].map((step) => {
+                const isComplete = step < guidedStep;
+                const isActive = step === guidedStep;
+
+                return (
+                  <div
+                    key={step}
+                      className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3"
+                    >
+                      <div className="flex flex-col items-center">
+                      <div
+                        className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold sm:h-9 sm:w-9 sm:text-sm ${
+                          isActive
+                            ? "bg-gradient-to-r from-[#f56969] to-[#ff86b2] text-white"
+                            : isComplete
+                              ? "bg-[#b77cf1] text-white"
+                              : "bg-[#e7ebf1] text-[#a8afbc]"
+                        }`}
+                      >
+                        {step}
+                      </div>
+                        <span
+                          className={`mt-2 text-center text-[11px] leading-4 sm:text-[13px] ${
+                            isActive
+                              ? "font-semibold text-[#f56969]"
+                              : isComplete
+                              ? "text-[#b77cf1]"
+                              : "text-[#b7b7b7]"
+                        }`}
+                      >
+                        {step === 3 ? "Finish" : `Page ${step}`}
+                      </span>
+                    </div>
+                      {step < 3 ? (
+                        <div
+                          className={`h-[3px] flex-1 rounded-full ${
+                            guidedStep > step
+                              ? "bg-gradient-to-r from-[#f56969] to-[#c785f7]"
+                              : "bg-[#e7ebf1]"
+                          }`}
+                        />
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+
+              {guidedStep === 1 ? (
+                <div className="mt-6 sm:mt-8">
+                  <h4 className="text-[17px] font-semibold text-[#0f2147] sm:text-[19px]">
+                    What brings you here today?{" "}
+                    <span className="text-[#f56969]">*</span>
+                  </h4>
+                  <div className="mt-4 space-y-3 sm:mt-5">
+                  {supportOptions.map((option) => {
+                    const isSelected = selectedSupport === option.label;
+
+                    return (
+                      <button
+                        key={option.label}
+                        type="button"
+                        onClick={() => setSelectedSupport(option.label)}
+                            className={`flex w-full items-center gap-3 rounded-[14px] border px-4 py-3.5 text-left transition-all sm:rounded-[16px] sm:px-5 sm:py-4 ${
+                            isSelected
+                              ? "border-[#f1b6c7] bg-[#fffafb] shadow-sm"
+                              : "border-[#dde3ec] bg-white hover:border-[#f0cbd6]"
+                          }`}
+                        >
+                          <span
+                            className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border ${
+                              isSelected
+                                ? "border-[#f56969] bg-white"
+                                : "border-[#cfd6de] bg-white"
+                            }`}
+                          >
+                            <span
+                              className={`h-3 w-3 rounded-full ${
+                                isSelected ? "bg-[#f56969]" : "bg-transparent"
+                              }`}
+                            />
+                          </span>
+                          <span className="block">
+                              <span className="block text-[15px] font-medium text-[#0f2147] sm:text-[16px]">
+                                {option.label}
+                              </span>
+                          </span>
+                        </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+              {guidedStep === 2 ? (
+                <div className="mt-6 sm:mt-8">
+                  <h4 className="text-[17px] font-semibold text-[#0f2147] sm:text-[19px]">
+                    How urgent is your concern?{" "}
+                    <span className="text-[#f56969]">*</span>
+                  </h4>
+                  <div className="mt-4 space-y-3 sm:mt-5">
+                  {urgencyOptions.map((option) => {
+                    const isSelected = selectedUrgency === option;
+
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setSelectedUrgency(option)}
+                            className={`flex w-full items-center gap-3 rounded-[14px] border px-4 py-3.5 text-left transition-all sm:rounded-[16px] sm:px-5 sm:py-4 ${
+                            isSelected
+                              ? "border-[#f1b6c7] bg-[#fffafb] shadow-sm"
+                              : "border-[#dde3ec] bg-white hover:border-[#f0cbd6]"
+                          }`}
+                        >
+                          <span
+                            className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border ${
+                              isSelected
+                                ? "border-[#f56969] bg-white"
+                                : "border-[#cfd6de] bg-white"
+                            }`}
+                          >
+                            <span
+                              className={`h-3 w-3 rounded-full ${
+                                isSelected ? "bg-[#f56969]" : "bg-transparent"
+                              }`}
+                            />
+                          </span>
+                            <span className="text-[15px] font-medium text-[#0f2147] sm:text-[16px]">
+                              {option}
+                            </span>
+                        </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+              {guidedStep === 3 ? (
+                <div className="mt-6 rounded-[20px] border border-[#ffd5db] bg-[#fff7f8] p-4 sm:mt-8 sm:rounded-[24px] sm:p-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#f56969]">
+                      Emergency Support
+                    </p>
+                        <h4 className="mt-2 text-[21px] font-bold leading-tight text-[#14213d] sm:text-[26px]">
+                          Please seek immediate help now
+                        </h4>
+                        <p className="mt-3 max-w-[520px] text-[14px] leading-6 text-[#5d6678] sm:text-[15px] sm:leading-6">
+                        If you or someone else may be in immediate danger, do not
+                        wait for a booking. Contact emergency services or a crisis
+                        line right away.
+                    </p>
+                  </div>
+                    <div className="rounded-full bg-[#ffe7eb] px-4 py-2 text-xs font-semibold text-[#f56969] sm:text-sm">
+                      Urgency: Emergency
+                    </div>
+                  </div>
+
+                    <div className="mt-5 grid gap-3 md:grid-cols-2">
+                    <div className="rounded-[18px] bg-white p-4 shadow-sm sm:rounded-[20px] sm:p-5">
+                    <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#7e7e7e]">
+                      India
+                    </p>
+                    <div className="mt-4 space-y-3 text-[16px] text-[#2b2b2b]">
+                      <p>
+                        <span className="font-semibold">Emergency:</span> 112
+                      </p>
+                      <p>
+                        <span className="font-semibold">Ambulance:</span> 108
+                      </p>
+                      <p>
+                        <span className="font-semibold">
+                          Mental health support:
+                        </span>{" "}
+                        Tele-MANAS 14416
+                      </p>
+                    </div>
+                  </div>
+                    <div className="rounded-[18px] bg-white p-4 shadow-sm sm:rounded-[20px] sm:p-5">
+                    <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#7e7e7e]">
+                      International
+                    </p>
+                    <div className="mt-4 space-y-3 text-[16px] text-[#2b2b2b]">
+                      <p>
+                        <span className="font-semibold">Immediate danger:</span>{" "}
+                        Call your local emergency number now
+                      </p>
+                      <p>
+                        <span className="font-semibold">U.S. / Canada:</span>{" "}
+                        Call or text 988
+                      </p>
+                      <p>
+                        <span className="font-semibold">If in the U.S.:</span>{" "}
+                        911 for emergency services
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                    <div className="mt-5 rounded-[18px] bg-white px-4 py-4 text-[13px] leading-5 text-[#5d6678] shadow-sm sm:px-5 sm:text-[14px]">
+                    Once you are safe, our team can still help you find the right
+                    therapist, medical professional, legal advisor, or wellness
+                    expert.
+                </div>
+              </div>
+            ) : null}
+
+                <div className="mt-6 flex flex-col gap-3 sm:mt-7 sm:flex-row sm:items-center sm:justify-between">
+                  <Button
+                    onClick={guidedStep === 1 ? resetGuidedFlow : handleGuidedPrevious}
+                    variant="outline"
+                    className="min-w-[120px] px-4 py-2 text-[14px] font-semibold sm:min-w-[140px] sm:px-5 sm:py-2.5 sm:text-[15px]"
+                  >
+                    {guidedStep === 1 ? "Close" : "Previous"}
+                  </Button>
+
+                {guidedStep < 3 ? (
+                  <Button
+                      onClick={handleGuidedNext}
+                      disabled={
+                        (guidedStep === 1 && !selectedSupport) ||
+                        (guidedStep === 2 && !selectedUrgency)
+                      }
+                      className="min-w-[132px] px-4 py-2 text-[14px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[155px] sm:px-5 sm:py-2.5 sm:text-[15px]"
+                      icon={<ArrowRight className="h-5 w-5" />}
+                    >
+                      Next
+                </Button>
+              ) : (
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                      <Button
+                        href="/#contact"
+                          className="min-w-[150px] px-4 py-2 text-[14px] font-semibold sm:min-w-[176px] sm:px-5 sm:py-2.5 sm:text-[15px]"
+                      >
+                        Contact Us Instead
+                      </Button>
+                      <Button
+                        onClick={resetGuidedFlow}
+                        variant="outline"
+                        className="min-w-[110px] px-4 py-2 text-[14px] font-semibold sm:min-w-[145px] sm:px-5 sm:py-2.5 sm:text-[15px]"
+                      >
+                        Done
+                      </Button>
+                  </div>
+                )}
+              </div>
+              </div>
+            </motion.div>
+        </div>
+      ) : null}
 
       <section className="bg-white px-6 py-16 lg:px-[120px]">
         <div className="mx-auto grid max-w-[1440px] grid-cols-2 gap-8 lg:grid-cols-4">

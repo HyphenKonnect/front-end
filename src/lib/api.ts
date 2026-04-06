@@ -14,10 +14,43 @@ export type SessionUser = {
   profile?: {
     bio?: string;
     specialisation?: string;
+    serviceCategory?: "therapist" | "doctor" | "legal" | "wellness";
     licenseNumber?: string;
     yearsExperience?: number;
     qualifications?: string[];
+    expertise?: string[];
+    sessionPrice?: number;
     verified?: boolean;
+  };
+  availability?: {
+    timezone?: string;
+    workingHours?: Record<string, { start?: string; end?: string }>;
+    blockedDates?: string[];
+  };
+};
+
+export type NotificationItem = {
+  _id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type:
+    | "booking_created"
+    | "booking_confirmed"
+    | "booking_rescheduled"
+    | "booking_cancelled"
+    | "booking_completed"
+    | "payment_received"
+    | "session_ready"
+    | "admin_update";
+  read: boolean;
+  actionUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+  metadata?: {
+    bookingId?: string;
+    paymentId?: string;
+    sessionId?: string;
   };
 };
 

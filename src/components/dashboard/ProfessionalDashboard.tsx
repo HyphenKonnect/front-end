@@ -43,14 +43,56 @@ type ProfessionalBooking = {
   professionalFee?: number;
 };
 
+const weekdayLabels = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+] as const;
+
+function normaliseDayWindow(slot?: { start?: string; end?: string }) {
+  return {
+    start: slot?.start || "",
+    end: slot?.end || "",
+  };
+}
+
 export function ProfessionalDashboard() {
-  const { user } = useAuth();
+  const { user, refreshSession } = useAuth();
   const [bookings, setBookings] = useState<ProfessionalBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [actionBookingId, setActionBookingId] = useState<string | null>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    name: "",
+    phone: "",
+    bio: "",
+    specialisation: "",
+    serviceCategory: "therapist",
+    yearsExperience: "",
+    sessionPrice: "",
+    qualifications: "",
+    expertise: "",
+  });
+  const [availabilityForm, setAvailabilityForm] = useState<
+    Record<(typeof weekdayLabels)[number], { start: string; end: string }>
+  >({
+    monday: { start: "", end: "" },
+    tuesday: { start: "", end: "" },
+    wednesday: { start: "", end: "" },
+    thursday: { start: "", end: "" },
+    friday: { start: "", end: "" },
+    saturday: { start: "", end: "" },
+    sunday: { start: "", end: "" },
+  });
+  const [blockedDateInput, setBlockedDateInput] = useState("");
+  const [blockedDates, setBlockedDates] = useState<string[]>([]);
 
   useEffect(() => {
     let ignore = false;
@@ -83,6 +125,39 @@ export function ProfessionalDashboard() {
       ignore = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    setProfileForm({
+      name: user.name || "",
+      phone: user.phone || "",
+      bio: user.profile?.bio || "",
+      specialisation: user.profile?.specialisation || "",
+      serviceCategory: user.profile?.serviceCategory || "therapist",
+      yearsExperience:
+        typeof user.profile?.yearsExperience === "number"
+          ? String(user.profile.yearsExperience)
+          : "",
+      sessionPrice:
+        typeof user.profile?.sessionPrice === "number"
+          ? String(user.profile.sessionPrice)
+          : "",
+      qualifications: (user.profile?.qualifications || []).join(", "),
+      expertise: (user.profile?.expertise || []).join(", "),
+    });
+
+    setAvailabilityForm({
+      monday: normaliseDayWindow(user.availability?.workingHours?.monday),
+      tuesday: normaliseDayWindow(user.availability?.workingHours?.tuesday),
+      wednesday: normaliseDayWindow(user.availability?.workingHours?.wednesday),
+      thursday: normaliseDayWindow(user.availability?.workingHours?.thursday),
+      friday: normaliseDayWindow(user.availability?.workingHours?.friday),
+      saturday: normaliseDayWindow(user.availability?.workingHours?.saturday),
+      sunday: normaliseDayWindow(user.availability?.workingHours?.sunday),
+    });
+    setBlockedDates(user.availability?.blockedDates || []);
+  }, [user]);
 
   const refreshBookings = async () => {
     const response = await apiFetch("/api/bookings");
@@ -119,6 +194,55 @@ export function ProfessionalDashboard() {
       );
     } finally {
       setActionBookingId(null);
+    }
+  };
+
+  const handleProfileSave = async () => {
+    try {
+      setSavingProfile(true);
+      setError(null);
+      const response = await apiFetch("/api/auth/me", {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: profileForm.name,
+          phone: profileForm.phone,
+          profile: {
+            bio: profileForm.bio,
+            specialisation: profileForm.specialisation,
+            serviceCategory: profileForm.serviceCategory,
+            yearsExperience: profileForm.yearsExperience
+              ? Number(profileForm.yearsExperience)
+              : undefined,
+            sessionPrice: profileForm.sessionPrice
+              ? Number(profileForm.sessionPrice)
+              : undefined,
+            qualifications: profileForm.qualifications
+              .split(",")
+              .map((item) => item.trim())
+              .filter(Boolean),
+            expertise: profileForm.expertise
+              .split(",")
+              .map((item) => item.trim())
+              .filter(Boolean),
+          },
+          availability: {
+            timezone: "Asia/Kolkata",
+            workingHours: availabilityForm,
+            blockedDates,
+          },
+        }),
+      });
+      await parseJsonResponse(response);
+      await refreshSession();
+      setSuccessMessage("Profile and availability updated successfully.");
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "We could not save your profile right now.",
+      );
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -308,6 +432,14 @@ export function ProfessionalDashboard() {
                         {actionBookingId === selectedBooking._id ? "Updating..." : "Mark completed"}
                       </button>
                     ) : null}
+                    {["confirmed", "completed"].includes(selectedBooking.status) ? (
+                      <Link
+                        href={`/consultation/${selectedBooking._id}`}
+                        className="rounded-full border border-[#ead9e8] px-4 py-2 text-xs font-medium text-[#2b2b2b]"
+                      >
+                        Join session room
+                      </Link>
+                    ) : null}
                   </div>
                 </div>
                 <div className="rounded-[22px] bg-[#f7f5f4] p-5">
@@ -421,6 +553,225 @@ export function ProfessionalDashboard() {
                 description="Completed or cancelled sessions will show here once your schedule history grows."
               />
             )}
+          </DashboardCard>
+
+          <DashboardCard
+            title="Profile editor"
+            className="lg:col-span-7"
+            eyebrow="Self management"
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="text-sm text-[#7e7e7e]">
+                Display name
+                <input
+                  value={profileForm.name}
+                  onChange={(event) =>
+                    setProfileForm((current) => ({ ...current, name: event.target.value }))
+                  }
+                  className="mt-2 w-full rounded-[16px] border border-[#ead9e8] bg-[#f7f5f4] px-4 py-3 text-[#2b2b2b] outline-none"
+                />
+              </label>
+              <label className="text-sm text-[#7e7e7e]">
+                Phone
+                <input
+                  value={profileForm.phone}
+                  onChange={(event) =>
+                    setProfileForm((current) => ({ ...current, phone: event.target.value }))
+                  }
+                  className="mt-2 w-full rounded-[16px] border border-[#ead9e8] bg-[#f7f5f4] px-4 py-3 text-[#2b2b2b] outline-none"
+                />
+              </label>
+              <label className="text-sm text-[#7e7e7e]">
+                Specialisation
+                <input
+                  value={profileForm.specialisation}
+                  onChange={(event) =>
+                    setProfileForm((current) => ({
+                      ...current,
+                      specialisation: event.target.value,
+                    }))
+                  }
+                  className="mt-2 w-full rounded-[16px] border border-[#ead9e8] bg-[#f7f5f4] px-4 py-3 text-[#2b2b2b] outline-none"
+                />
+              </label>
+              <label className="text-sm text-[#7e7e7e]">
+                Service line
+                <select
+                  value={profileForm.serviceCategory}
+                  onChange={(event) =>
+                    setProfileForm((current) => ({
+                      ...current,
+                      serviceCategory: event.target.value as
+                        | "therapist"
+                        | "doctor"
+                        | "legal"
+                        | "wellness",
+                    }))
+                  }
+                  className="mt-2 w-full rounded-[16px] border border-[#ead9e8] bg-[#f7f5f4] px-4 py-3 text-[#2b2b2b] outline-none"
+                >
+                  <option value="therapist">Mental Wellness</option>
+                  <option value="doctor">Medical Consultation</option>
+                  <option value="legal">Legal Guidance</option>
+                  <option value="wellness">Wellness Programs</option>
+                </select>
+              </label>
+              <label className="text-sm text-[#7e7e7e]">
+                Years of experience
+                <input
+                  value={profileForm.yearsExperience}
+                  onChange={(event) =>
+                    setProfileForm((current) => ({
+                      ...current,
+                      yearsExperience: event.target.value,
+                    }))
+                  }
+                  className="mt-2 w-full rounded-[16px] border border-[#ead9e8] bg-[#f7f5f4] px-4 py-3 text-[#2b2b2b] outline-none"
+                />
+              </label>
+              <label className="text-sm text-[#7e7e7e]">
+                Session price (INR)
+                <input
+                  value={profileForm.sessionPrice}
+                  onChange={(event) =>
+                    setProfileForm((current) => ({
+                      ...current,
+                      sessionPrice: event.target.value,
+                    }))
+                  }
+                  className="mt-2 w-full rounded-[16px] border border-[#ead9e8] bg-[#f7f5f4] px-4 py-3 text-[#2b2b2b] outline-none"
+                />
+              </label>
+              <label className="text-sm text-[#7e7e7e] md:col-span-2">
+                Qualifications
+                <input
+                  value={profileForm.qualifications}
+                  onChange={(event) =>
+                    setProfileForm((current) => ({
+                      ...current,
+                      qualifications: event.target.value,
+                    }))
+                  }
+                  placeholder="Comma separated qualifications"
+                  className="mt-2 w-full rounded-[16px] border border-[#ead9e8] bg-[#f7f5f4] px-4 py-3 text-[#2b2b2b] outline-none"
+                />
+              </label>
+              <label className="text-sm text-[#7e7e7e] md:col-span-2">
+                Areas of expertise
+                <input
+                  value={profileForm.expertise}
+                  onChange={(event) =>
+                    setProfileForm((current) => ({
+                      ...current,
+                      expertise: event.target.value,
+                    }))
+                  }
+                  placeholder="Comma separated expertise"
+                  className="mt-2 w-full rounded-[16px] border border-[#ead9e8] bg-[#f7f5f4] px-4 py-3 text-[#2b2b2b] outline-none"
+                />
+              </label>
+              <label className="text-sm text-[#7e7e7e] md:col-span-2">
+                Bio
+                <textarea
+                  value={profileForm.bio}
+                  onChange={(event) =>
+                    setProfileForm((current) => ({ ...current, bio: event.target.value }))
+                  }
+                  rows={5}
+                  className="mt-2 w-full rounded-[16px] border border-[#ead9e8] bg-[#f7f5f4] px-4 py-3 text-[#2b2b2b] outline-none"
+                />
+              </label>
+            </div>
+          </DashboardCard>
+
+          <DashboardCard
+            title="Availability manager"
+            className="lg:col-span-5"
+            eyebrow="Calendar setup"
+          >
+            <div className="space-y-4">
+              {weekdayLabels.map((day) => (
+                <div key={day} className="rounded-[20px] bg-[#f7f5f4] p-4">
+                  <p className="text-sm font-semibold capitalize text-[#2b2b2b]">{day}</p>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <input
+                      type="time"
+                      value={availabilityForm[day].start}
+                      onChange={(event) =>
+                        setAvailabilityForm((current) => ({
+                          ...current,
+                          [day]: { ...current[day], start: event.target.value },
+                        }))
+                      }
+                      className="rounded-[14px] border border-[#ead9e8] bg-white px-3 py-2 text-sm text-[#2b2b2b] outline-none"
+                    />
+                    <input
+                      type="time"
+                      value={availabilityForm[day].end}
+                      onChange={(event) =>
+                        setAvailabilityForm((current) => ({
+                          ...current,
+                          [day]: { ...current[day], end: event.target.value },
+                        }))
+                      }
+                      className="rounded-[14px] border border-[#ead9e8] bg-white px-3 py-2 text-sm text-[#2b2b2b] outline-none"
+                    />
+                  </div>
+                </div>
+              ))}
+
+              <div className="rounded-[20px] bg-[#f7f5f4] p-4">
+                <p className="text-sm font-semibold text-[#2b2b2b]">Blocked dates</p>
+                <div className="mt-3 flex gap-3">
+                  <input
+                    type="date"
+                    value={blockedDateInput}
+                    onChange={(event) => setBlockedDateInput(event.target.value)}
+                    className="flex-1 rounded-[14px] border border-[#ead9e8] bg-white px-3 py-2 text-sm text-[#2b2b2b] outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!blockedDateInput || blockedDates.includes(blockedDateInput)) return;
+                      setBlockedDates((current) => [...current, blockedDateInput].sort());
+                      setBlockedDateInput("");
+                    }}
+                    className="rounded-full bg-[#2b2b2b] px-4 py-2 text-sm font-medium text-white"
+                  >
+                    Add
+                  </button>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {blockedDates.length ? (
+                    blockedDates.map((date) => (
+                      <button
+                        key={date}
+                        type="button"
+                        onClick={() =>
+                          setBlockedDates((current) => current.filter((item) => item !== date))
+                        }
+                        className="rounded-full bg-white px-3 py-2 text-xs font-medium text-[#2b2b2b]"
+                      >
+                        {date} ×
+                      </button>
+                    ))
+                  ) : (
+                    <span className="text-sm text-[#7e7e7e]">
+                      No blocked dates added yet.
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void handleProfileSave()}
+                disabled={savingProfile}
+                className="w-full rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] px-5 py-3 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {savingProfile ? "Saving..." : "Save profile and availability"}
+              </button>
+            </div>
           </DashboardCard>
         </DashboardGrid>
       </DashboardShell>

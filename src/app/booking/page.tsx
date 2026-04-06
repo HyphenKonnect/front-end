@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -10,6 +10,7 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import {
+  buildProfessionalCtaHref,
   mapBackendProfessionalToDirectory,
   professionals,
   serviceCatalog,
@@ -91,19 +92,33 @@ const localDirectory: DirectoryProfessional[] = professionals.map((professional)
   location: professional.location,
   workingHours: professional.workingHours,
   daysOff: professional.daysOff,
+  bookingMode: professional.bookingMode,
+  packageSessions: professional.packageSessions,
 }));
 
 export default function BookingPage() {
+  return (
+    <Suspense fallback={<BookingPageFallback />}>
+      <BookingPageContent />
+    </Suspense>
+  );
+}
+
+function BookingPageContent() {
   const searchParams = useSearchParams();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const today = useMemo(() => startOfDay(new Date()), []);
   const initialService = searchParams.get("service") || "";
+  const initialProfessionalSlug = searchParams.get("professional") || "";
   const bookingIdFromQuery = searchParams.get("bookingId") || "";
   const [step, setStep] = useState(1);
   const [selectedService, setSelectedService] = useState(initialService);
   const [selectedProfessional, setSelectedProfessional] = useState<string | number | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("");
+  const [selectedSecondDate, setSelectedSecondDate] = useState<Date | null>(null);
+  const [selectedSecondTime, setSelectedSecondTime] = useState("");
+  const [activePackageSlot, setActivePackageSlot] = useState<1 | 2>(1);
   const [visibleMonth, setVisibleMonth] = useState(
     () => new Date(today.getFullYear(), today.getMonth(), 1),
   );
@@ -123,6 +138,13 @@ export default function BookingPage() {
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [rescheduleBooking, setRescheduleBooking] = useState<BookingDetailsResponse | null>(null);
+  const [requestForm, setRequestForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    message: "",
+  });
+  const [requestSuccessMessage, setRequestSuccessMessage] = useState("");
 
   const isRescheduleMode = Boolean(bookingIdFromQuery);
 
@@ -135,11 +157,14 @@ export default function BookingPage() {
     setSelectedProfessional(null);
     setSelectedDate(null);
     setSelectedTime("");
+    setSelectedSecondDate(null);
+    setSelectedSecondTime("");
     setBookingError("");
     setBookingSuccess(null);
     setPaymentOrder(null);
     setPaymentError("");
     setPaymentSuccessMessage("");
+    setRequestSuccessMessage("");
     setStep(2);
     setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
   }, [searchParams, today]);
@@ -257,6 +282,36 @@ export default function BookingPage() {
     );
   }, [selectedPro]);
 
+  useEffect(() => {
+    if (!initialProfessionalSlug || !professionalOptions.length || selectedProfessional) return;
+    const matchedProfessional = professionalOptions.find(
+      (item) => item.slug === initialProfessionalSlug,
+    );
+    if (!matchedProfessional) return;
+    setSelectedProfessional(matchedProfessional.id);
+    setStep(2);
+  }, [initialProfessionalSlug, professionalOptions, selectedProfessional]);
+
+  useEffect(() => {
+    setRequestForm({
+      name: user?.name || "",
+      email: user?.email || "",
+      phone: user?.phone || "",
+      message: fallbackProfile?.category === "legal"
+        ? "I would like support with a legal consultation."
+        : "",
+    });
+  }, [fallbackProfile?.category, user?.email, user?.name, user?.phone]);
+
+  const bookingMode = fallbackProfile?.bookingMode || selectedPro?.bookingMode || "standard";
+  const isRequestOnly = bookingMode === "request";
+  const isPackageBooking = bookingMode === "package";
+  const packageSessionCount = fallbackProfile?.packageSessions || selectedPro?.packageSessions || 1;
+  const calendarTargetDate =
+    isPackageBooking && activePackageSlot === 2 ? selectedSecondDate : selectedDate;
+  const calendarTargetTime =
+    isPackageBooking && activePackageSlot === 2 ? selectedSecondTime : selectedTime;
+
   const fallbackSchedule = useMemo(
     () => (fallbackProfile ? buildFallbackAvailabilitySchedule(fallbackProfile) : null),
     [fallbackProfile],
@@ -265,20 +320,24 @@ export default function BookingPage() {
   const calendarDays = useMemo(() => buildCalendarDays(visibleMonth), [visibleMonth]);
 
   const availableSlots = useMemo(() => {
-    if (!selectedDate || !selectedPro) return [];
+    if (!calendarTargetDate || !selectedPro) return [];
 
     if (selectedPro.backendId && availabilityData?.availability) {
-      return getLiveSlotsForDate(selectedDate, availabilityData);
+      return getLiveSlotsForDate(calendarTargetDate, availabilityData);
     }
 
     if (fallbackProfile && fallbackSchedule) {
-      return getFallbackSlotsForDate(selectedDate, fallbackProfile, fallbackSchedule);
+      return getFallbackSlotsForDate(calendarTargetDate, fallbackProfile, fallbackSchedule);
     }
 
     return [];
-  }, [availabilityData, fallbackProfile, fallbackSchedule, selectedDate, selectedPro]);
+  }, [availabilityData, calendarTargetDate, fallbackProfile, fallbackSchedule, selectedPro]);
 
-  const canMoveToStepFour = Boolean(selectedDate && selectedTime);
+  const canMoveToStepFour = isRequestOnly
+    ? Boolean(requestForm.name && requestForm.email && requestForm.message)
+    : isPackageBooking
+      ? Boolean(selectedDate && selectedTime && selectedSecondDate && selectedSecondTime)
+      : Boolean(selectedDate && selectedTime);
 
   useEffect(() => {
     if (!selectedPro?.backendId) {
@@ -538,6 +597,36 @@ export default function BookingPage() {
     }
   };
 
+  const handleContinueLegalRequest = () => {
+    if (!selectedPro) return;
+
+    const params = new URLSearchParams({
+      service:
+        serviceCatalog.find((service) => service.slug === selectedService)?.title ||
+        selectedService,
+      professional: selectedPro.name,
+      mode: isPackageBooking ? "package-request" : "request",
+    });
+
+    if (requestForm.name) params.set("name", requestForm.name);
+    if (requestForm.email) params.set("email", requestForm.email);
+    if (requestForm.phone) params.set("phone", requestForm.phone);
+    if (requestForm.message) params.set("message", requestForm.message);
+    if (selectedDate && selectedTime) {
+      params.set("slotOne", `${formatLongDate(selectedDate)} at ${selectedTime}`);
+    }
+    if (selectedSecondDate && selectedSecondTime) {
+      params.set("slotTwo", `${formatLongDate(selectedSecondDate)} at ${selectedSecondTime}`);
+    }
+
+    setRequestSuccessMessage(
+      isPackageBooking
+        ? "Your preferred legal package slots are ready to send to our support team."
+        : "Your legal session request is ready to send to our support team.",
+    );
+    window.location.href = `/contact?${params.toString()}`;
+  };
+
   return (
     <div className="min-h-screen bg-[#f7f5f4] pt-28">
       <div className="border-y border-gray-200 bg-white">
@@ -590,11 +679,15 @@ export default function BookingPage() {
                     setSelectedProfessional(null);
                     setSelectedDate(null);
                     setSelectedTime("");
+                    setSelectedSecondDate(null);
+                    setSelectedSecondTime("");
+                    setActivePackageSlot(1);
                     setBookingError("");
                     setBookingSuccess(null);
                     setPaymentOrder(null);
                     setPaymentError("");
                     setPaymentSuccessMessage("");
+                    setRequestSuccessMessage("");
                     setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
                   }}
                   className={`rounded-[24px] bg-white p-8 text-left transition-all ${
@@ -644,14 +737,18 @@ export default function BookingPage() {
                 <button
                   key={pro.id}
                   type="button"
-                  onClick={() => {
-                    setSelectedProfessional(pro.id);
-                    setSelectedDate(null);
-                    setSelectedTime("");
-                    setBookingError("");
-                    setBookingSuccess(null);
-                    setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
-                  }}
+                    onClick={() => {
+                      setSelectedProfessional(pro.id);
+                      setSelectedDate(null);
+                      setSelectedTime("");
+                      setSelectedSecondDate(null);
+                      setSelectedSecondTime("");
+                      setActivePackageSlot(1);
+                      setBookingError("");
+                      setBookingSuccess(null);
+                      setRequestSuccessMessage("");
+                      setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+                    }}
                   className={`overflow-hidden rounded-[24px] bg-white text-left transition-all ${
                     selectedProfessional === pro.id
                       ? "border-2 border-[#f56969] shadow-lg"
@@ -673,14 +770,18 @@ export default function BookingPage() {
                           {pro.specialty}
                         </p>
                       </div>
-                      <span className="rounded-full border border-[#ffd5cf] px-3 py-1 text-[12px] font-medium text-[#f56969]">
-                        Online
-                      </span>
+                        <span className="rounded-full border border-[#ffd5cf] px-3 py-1 text-[12px] font-medium text-[#f56969]">
+                          {pro.bookingMode === "request"
+                            ? "On request"
+                            : pro.bookingMode === "package"
+                              ? "2-session package"
+                              : "Online"}
+                        </span>
                     </div>
                     <div className="grid gap-2 text-[14px] text-[#6f6f6f]">
                       <div className="flex items-center justify-between gap-3">
                         <span>{pro.experience} of experience</span>
-                        <span className="font-semibold text-[#2b2b2b]">{pro.rate}</span>
+                          <span className="font-semibold text-[#2b2b2b]">{pro.rate}</span>
                       </div>
                       {pro.location ? (
                         <div className="flex items-center justify-between gap-3">
@@ -698,9 +799,21 @@ export default function BookingPage() {
         {step === 3 ? (
           <>
             <h2 className="mb-3 text-[36px] font-bold text-[#2b2b2b]">
-              {isRescheduleMode ? "Reschedule Date &amp; Time" : "Pick Date &amp; Time"}
+              {isRequestOnly
+                ? "Request Your Legal Session"
+                : isPackageBooking
+                  ? "Pick Your Two Legal Sessions"
+                  : isRescheduleMode
+                    ? "Reschedule Date &amp; Time"
+                    : "Pick Date &amp; Time"}
             </h2>
-            <p className="mb-8 text-[16px] text-[#7e7e7e]">Choose a time that works for you.</p>
+            <p className="mb-8 text-[16px] text-[#7e7e7e]">
+              {isRequestOnly
+                ? "This lawyer is available on request. Share your details and our team will coordinate the session."
+                : isPackageBooking
+                  ? "Choose two preferred legal session slots based on the professional’s availability."
+                  : "Choose a time that works for you."}
+            </p>
             <div className="grid gap-8 xl:grid-cols-[1.1fr_0.95fr]">
               <div className="rounded-[32px] bg-white p-6 shadow-[0_18px_45px_rgba(29,25,22,0.06)] sm:p-8">
                 <div className="mb-6 flex flex-wrap items-center gap-3">
@@ -767,7 +880,9 @@ export default function BookingPage() {
                       fallbackProfile,
                       fallbackSchedule,
                     );
-                    const selected = selectedDate ? isSameDay(day, selectedDate) : false;
+                    const selected = calendarTargetDate
+                      ? isSameDay(day, calendarTargetDate)
+                      : false;
 
                     return (
                       <button
@@ -775,10 +890,16 @@ export default function BookingPage() {
                         type="button"
                         disabled={!selectable}
                         onClick={() => {
-                          setSelectedDate(day);
-                          setSelectedTime("");
+                          if (isPackageBooking && activePackageSlot === 2) {
+                            setSelectedSecondDate(day);
+                            setSelectedSecondTime("");
+                          } else {
+                            setSelectedDate(day);
+                            setSelectedTime("");
+                          }
                           setBookingError("");
                           setBookingSuccess(null);
+                          setRequestSuccessMessage("");
                         }}
                         className={`relative min-h-[58px] rounded-[12px] border text-[28px] font-medium transition sm:min-h-[72px] ${
                           selected
@@ -823,9 +944,11 @@ export default function BookingPage() {
                     <div>
                       <h3 className="text-[28px] font-bold text-[#2b2b2b]">Available Time Slots</h3>
                       <p className="text-sm text-[#7e7e7e]">
-                        {selectedDate
-                          ? formatLongDate(selectedDate)
-                          : "Select a date to see available session times."}
+                        {isRequestOnly
+                          ? "Tell us what you need and we’ll route it to the legal team."
+                          : calendarTargetDate
+                            ? formatLongDate(calendarTargetDate)
+                            : "Select a date to see available session times."}
                       </p>
                     </div>
                     {loadingAvailability ? (
@@ -836,22 +959,101 @@ export default function BookingPage() {
                     ) : null}
                   </div>
 
-                  {selectedDate && availableSlots.length ? (
+                  {isPackageBooking ? (
+                    <div className="mb-6 flex flex-wrap gap-3">
+                      {[1, 2].map((slotIndex) => {
+                        const slotNumber = slotIndex as 1 | 2;
+                        const slotDate = slotNumber === 1 ? selectedDate : selectedSecondDate;
+                        const slotTime = slotNumber === 1 ? selectedTime : selectedSecondTime;
+
+                        return (
+                          <button
+                            key={slotIndex}
+                            type="button"
+                            onClick={() => setActivePackageSlot(slotNumber)}
+                            className={`min-w-[180px] rounded-[18px] border px-4 py-4 text-left transition ${
+                              activePackageSlot === slotNumber
+                                ? "border-[#f56a6a] bg-[#fff3f2] shadow-sm"
+                                : "border-[#eadfda] bg-[#fcfaf9]"
+                            }`}
+                          >
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7e7e7e]">
+                              {slotIndex === 1 ? "First session" : "Second session"}
+                            </p>
+                            <p className="mt-2 text-sm font-medium text-[#2b2b2b]">
+                              {slotDate ? formatLongDate(slotDate) : "Select a date"}
+                            </p>
+                            <p className="mt-1 text-sm text-[#7e7e7e]">
+                              {slotTime || "Select a time"}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+
+                  {isRequestOnly ? (
+                    <div className="space-y-4">
+                      <RequestField
+                        label="Full Name *"
+                        value={requestForm.name}
+                        onChange={(value) =>
+                          setRequestForm((current) => ({ ...current, name: value }))
+                        }
+                      />
+                      <RequestField
+                        label="Email *"
+                        type="email"
+                        value={requestForm.email}
+                        onChange={(value) =>
+                          setRequestForm((current) => ({ ...current, email: value }))
+                        }
+                      />
+                      <RequestField
+                        label="Phone"
+                        value={requestForm.phone}
+                        onChange={(value) =>
+                          setRequestForm((current) => ({ ...current, phone: value }))
+                        }
+                      />
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-[#2b2b2b]">
+                          What support do you need? *
+                        </label>
+                        <textarea
+                          value={requestForm.message}
+                          onChange={(event) =>
+                            setRequestForm((current) => ({
+                              ...current,
+                              message: event.target.value,
+                            }))
+                          }
+                          className="min-h-[140px] w-full rounded-[18px] border border-[#ead9e8] bg-[#f7f5f4] px-4 py-3 text-sm outline-none"
+                          placeholder="Tell us briefly about the legal help you are seeking."
+                        />
+                      </div>
+                    </div>
+                  ) : calendarTargetDate && availableSlots.length ? (
                     <div className="grid gap-4 sm:grid-cols-2">
                       {availableSlots.map((slot) => (
                         <button
                           key={slot}
                           type="button"
                           onClick={() => {
-                            setSelectedTime(slot);
+                            if (isPackageBooking && activePackageSlot === 2) {
+                              setSelectedSecondTime(slot);
+                            } else {
+                              setSelectedTime(slot);
+                            }
                             setBookingError("");
                             setBookingSuccess(null);
+                            setRequestSuccessMessage("");
                           }}
                           className={`rounded-[18px] border px-5 py-4 text-center text-[24px] font-medium transition ${
-                            selectedTime === slot
+                            calendarTargetTime === slot
                               ? "border-[#f56a6a] bg-[#f56a6a] text-white"
                               : "border-transparent bg-[#f4f0ee] text-[#1f2d3d] hover:bg-[#ffe9e7]"
-                          }`}
+                            }`}
                         >
                           <span className="text-[16px]">{slot}</span>
                         </button>
@@ -859,9 +1061,11 @@ export default function BookingPage() {
                     </div>
                   ) : (
                     <div className="rounded-[24px] border border-dashed border-[#ecd8d5] bg-[#fcf9f8] px-6 py-8 text-center text-[#7e7e7e]">
-                      {selectedDate
+                      {calendarTargetDate
                         ? "No slots are available for this day. Please choose another date."
-                        : "Choose a date from the calendar to unlock available slots."}
+                        : isRequestOnly
+                          ? "Complete the request form and continue to send your legal session request."
+                          : "Choose a date from the calendar to unlock available slots."}
                     </div>
                   )}
                 </div>
@@ -872,12 +1076,22 @@ export default function BookingPage() {
         {step === 4 ? (
           <>
             <h2 className="mb-3 text-[36px] font-bold text-[#2b2b2b]">
-              {isRescheduleMode ? "Confirm Your Reschedule" : "Confirm Your Booking"}
+              {isRequestOnly
+                ? "Review Your Session Request"
+                : isPackageBooking
+                  ? "Review Your Legal Package"
+                  : isRescheduleMode
+                    ? "Confirm Your Reschedule"
+                    : "Confirm Your Booking"}
             </h2>
             <p className="mb-8 text-[16px] text-[#7e7e7e]">
-              {isRescheduleMode
-                ? "Review the updated session details and confirm your new appointment time."
-                : "Review your session details and confirm your appointment."}
+              {isRequestOnly
+                ? "Review the details you want us to send to the legal team."
+                : isPackageBooking
+                  ? "Review both requested legal consultation slots before sending your package request."
+                  : isRescheduleMode
+                    ? "Review the updated session details and confirm your new appointment time."
+                    : "Review your session details and confirm your appointment."}
             </p>
             <div className="grid gap-8 lg:grid-cols-[1fr_0.85fr]">
               <div className="rounded-[32px] bg-white p-8 shadow-[0_18px_45px_rgba(29,25,22,0.06)]">
@@ -920,35 +1134,83 @@ export default function BookingPage() {
                   </div>
                   <div className="rounded-[24px] bg-[#f7f5f4] p-5">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e7e7e]">
-                      Date
+                      {isRequestOnly ? "Request mode" : "Date"}
                     </p>
                     <p className="mt-2 text-lg font-semibold text-[#2b2b2b]">
-                      {selectedDate ? formatLongDate(selectedDate) : "Not selected"}
+                      {isRequestOnly
+                        ? "Manual coordination"
+                        : selectedDate
+                          ? formatLongDate(selectedDate)
+                          : "Not selected"}
                     </p>
                   </div>
                   <div className="rounded-[24px] bg-[#f7f5f4] p-5">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e7e7e]">
-                      Time
+                      {isRequestOnly ? "Support note" : "Time"}
                     </p>
                     <p className="mt-2 text-lg font-semibold text-[#2b2b2b]">
-                      {selectedTime || "Not selected"}
+                      {isRequestOnly
+                        ? "Request form submitted below"
+                        : selectedTime || "Not selected"}
                     </p>
                   </div>
+                  {isPackageBooking ? (
+                    <>
+                      <div className="rounded-[24px] bg-[#f7f5f4] p-5">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e7e7e]">
+                          Second session date
+                        </p>
+                        <p className="mt-2 text-lg font-semibold text-[#2b2b2b]">
+                          {selectedSecondDate ? formatLongDate(selectedSecondDate) : "Not selected"}
+                        </p>
+                      </div>
+                      <div className="rounded-[24px] bg-[#f7f5f4] p-5">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e7e7e]">
+                          Second session time
+                        </p>
+                        <p className="mt-2 text-lg font-semibold text-[#2b2b2b]">
+                          {selectedSecondTime || "Not selected"}
+                        </p>
+                      </div>
+                    </>
+                  ) : null}
+                  {isRequestOnly ? (
+                    <div className="rounded-[24px] bg-[#f7f5f4] p-5 md:col-span-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e7e7e]">
+                        Request details
+                      </p>
+                      <p className="mt-2 text-base leading-7 text-[#2b2b2b]">
+                        {requestForm.message || "No details added yet."}
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
               <div className="rounded-[32px] bg-white p-8 shadow-[0_18px_45px_rgba(29,25,22,0.06)]">
-                <h3 className="text-[28px] font-bold text-[#2b2b2b]">Ready to confirm?</h3>
+                <h3 className="text-[28px] font-bold text-[#2b2b2b]">
+                  {isRequestOnly || isPackageBooking ? "Ready to send?" : "Ready to confirm?"}
+                </h3>
                 <p className="mt-3 text-[15px] leading-7 text-[#7e7e7e]">
-                  {isRescheduleMode
-                    ? "We&apos;ll update your session on the live backend and refresh it in your client dashboard right after confirmation."
-                    : "We&apos;ll create your session on the live backend and surface it in your client dashboard right after confirmation."}
+                  {isRequestOnly
+                    ? "We&apos;ll take this request to our legal support team and help coordinate the next step with the professional."
+                    : isPackageBooking
+                      ? "We&apos;ll send both requested legal package slots to our team for confirmation based on the professional&apos;s availability."
+                      : isRescheduleMode
+                        ? "We&apos;ll update your session on the live backend and refresh it in your client dashboard right after confirmation."
+                        : "We&apos;ll create your session on the live backend and surface it in your client dashboard right after confirmation."}
                 </p>
 
                 {!isAuthenticated && !authLoading ? (
                   <div className="mt-6 rounded-[24px] border border-[#ffe0de] bg-[#fff4f3] p-5 text-sm text-[#694646]">
                     Please <Link href="/login" className="font-semibold text-[#f56969] underline">log in</Link> as a client before confirming your booking.
                   </div>
+                ) : null}
+
+                {requestSuccessMessage ? (
+                  <StatusBanner tone="info" className="mt-6" title="Request ready">
+                    {requestSuccessMessage}
+                  </StatusBanner>
                 ) : null}
 
                 {bookingError ? (
@@ -985,7 +1247,7 @@ export default function BookingPage() {
                   </StatusBanner>
                 ) : null}
 
-                {!isRescheduleMode && pricingBreakdown.basePrice ? (
+                {!isRequestOnly && !isRescheduleMode && pricingBreakdown.basePrice ? (
                   <div className="mt-6 rounded-[24px] bg-[#f7f5f4] p-5">
                     <p className="text-sm font-semibold text-[#2b2b2b]">Payment summary</p>
                     <div className="mt-4 space-y-3 text-sm text-[#6f6f6f]">
@@ -1028,21 +1290,31 @@ export default function BookingPage() {
                 ) : null}
 
                 <div className="mt-8 flex flex-col gap-4">
-                  <button
-                    type="button"
-                    onClick={() => void handleConfirmBooking()}
-                    disabled={submitting || Boolean(bookingSuccess) || authLoading}
-                    className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] px-6 py-4 text-sm font-semibold text-white disabled:opacity-50"
-                  >
-                    {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-                    {bookingSuccess
-                      ? isRescheduleMode
-                        ? "Reschedule Confirmed"
-                        : "Booking Created"
-                      : isRescheduleMode
-                        ? "Confirm Reschedule"
-                        : "Confirm Booking"}
-                  </button>
+                  {isRequestOnly || isPackageBooking ? (
+                    <button
+                      type="button"
+                      onClick={handleContinueLegalRequest}
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] px-6 py-4 text-sm font-semibold text-white"
+                    >
+                      {isPackageBooking ? "Continue To Package Request" : "Send Session Request"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void handleConfirmBooking()}
+                      disabled={submitting || Boolean(bookingSuccess) || authLoading}
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] px-6 py-4 text-sm font-semibold text-white disabled:opacity-50"
+                    >
+                      {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+                      {bookingSuccess
+                        ? isRescheduleMode
+                          ? "Reschedule Confirmed"
+                          : "Booking Created"
+                        : isRescheduleMode
+                          ? "Confirm Reschedule"
+                          : "Confirm Booking"}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setStep(3)}
@@ -1051,7 +1323,7 @@ export default function BookingPage() {
                   >
                     Back To Date &amp; Time
                   </button>
-                  {!isRescheduleMode && bookingSuccess ? (
+                  {!isRequestOnly && !isPackageBooking && !isRescheduleMode && bookingSuccess ? (
                     <button
                       type="button"
                       onClick={() => void handleStartPayment()}
@@ -1061,7 +1333,7 @@ export default function BookingPage() {
                       {creatingPaymentOrder ? "Preparing payment..." : "Pay with Razorpay"}
                     </button>
                   ) : null}
-                  {bookingSuccess ? (
+                  {!isRequestOnly && !isPackageBooking && bookingSuccess ? (
                     <Link
                       href="/dashboard/client"
                       className="rounded-full border border-[#f4c7c4] px-6 py-4 text-center text-sm font-medium text-[#f56969]"
@@ -1101,6 +1373,43 @@ export default function BookingPage() {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function BookingPageFallback() {
+  return (
+    <div className="bg-[#f7f5f4] px-6 pb-24 pt-36 lg:px-[120px]">
+      <div className="mx-auto flex min-h-[320px] max-w-[1440px] items-center justify-center rounded-[32px] bg-white shadow-sm">
+        <div className="flex items-center gap-3 text-[#7e7e7e]">
+          <LoaderCircle className="h-5 w-5 animate-spin text-[#f56969]" />
+          <span className="text-sm font-medium">Loading booking flow...</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RequestField({
+  label,
+  value,
+  onChange,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-medium text-[#2b2b2b]">{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-[18px] border border-[#ead9e8] bg-[#f7f5f4] px-4 py-3 text-sm outline-none"
+      />
     </div>
   );
 }

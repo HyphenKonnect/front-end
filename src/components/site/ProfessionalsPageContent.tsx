@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Search, Star } from "lucide-react";
 import {
+  buildProfessionalCtaHref,
   mapBackendProfessionalToDirectory,
   professionalCategories,
   professionals,
@@ -12,6 +13,28 @@ import {
 } from "./data";
 import { GradientCta, PageHero, SectionTitle } from "./page-primitives";
 import { apiFetch, parseJsonResponse } from "../../lib/api";
+
+function renderRate(rate: string) {
+  const sessionMatch = rate.match(/^Rs\.?\s*([\d,]+)\s*\/\s*session$/i);
+  if (sessionMatch) {
+    return (
+      <div>
+        <p className="text-[18px] font-bold leading-tight text-[#2b2b2b]">
+          Rs. {sessionMatch[1]}
+        </p>
+        <p className="mt-1 text-[12px] font-medium uppercase tracking-[0.12em] text-[#7e7e7e]">
+          Per session
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <p className="text-[16px] font-bold leading-tight text-[#2b2b2b]">
+      {rate.replace(/^Rs\.?\s*/i, "Rs. ")}
+    </p>
+  );
+}
 
 export function ProfessionalsPageContent({
   initialCategory = "all",
@@ -162,9 +185,7 @@ export function ProfessionalsPageContent({
 
                   <div className="flex flex-col gap-3 border-t border-[#eee6e3] pt-5 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
-                      <p className="text-[16px] font-bold leading-tight text-[#2b2b2b]">
-                        {professional.rate.replace(/^Rs\.?\s*/i, "Rs. ")}
-                      </p>
+                      {renderRate(professional.rate)}
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 sm:w-auto sm:min-w-[240px]">
@@ -179,10 +200,14 @@ export function ProfessionalsPageContent({
                         <div />
                       )}
                       <Link
-                        href="/booking"
+                        href={buildProfessionalCtaHref(professional)}
                         className="inline-flex min-h-[46px] items-center justify-center rounded-full bg-[#2b2b2b] px-3 py-2 text-center text-[13px] font-semibold leading-tight text-white shadow-sm sm:min-h-[48px] sm:px-4"
                       >
-                        Book Now
+                        {professional.bookingMode === "request"
+                          ? "Request Session"
+                          : professional.bookingMode === "package"
+                            ? "Book Package"
+                            : "Book Now"}
                       </Link>
                     </div>
                   </div>

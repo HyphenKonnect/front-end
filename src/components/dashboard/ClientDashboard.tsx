@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, CreditCard, MessageSquare, Video } from "lucide-react";
+import { CalendarDays, CreditCard, MessageSquare, Receipt, Video } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { ProtectedRoute } from "../auth/ProtectedRoute";
 import { apiFetch, parseJsonResponse } from "../../lib/api";
@@ -437,6 +437,14 @@ export function ClientDashboard() {
                               : "Pay now"}
                           </button>
                         ) : null}
+                        {["confirmed", "completed"].includes(booking.status) ? (
+                          <Link
+                            href={`/consultation/${booking._id}`}
+                            className="rounded-full border border-[#ead9e8] px-3 py-1 text-xs font-medium text-[#2b2b2b]"
+                          >
+                            Join session
+                          </Link>
+                        ) : null}
                       </div>
                     </div>
                   );
@@ -482,6 +490,14 @@ export function ClientDashboard() {
                       {selectedBooking.paymentStatus || "payment pending"}
                     </span>
                   </div>
+                  {["confirmed", "completed"].includes(selectedBooking.status) ? (
+                    <Link
+                      href={`/consultation/${selectedBooking._id}`}
+                      className="mt-4 inline-flex rounded-full border border-[#ead9e8] px-4 py-2 text-xs font-medium text-[#2b2b2b]"
+                    >
+                      Open session room
+                    </Link>
+                  ) : null}
                   {paymentState?.bookingId === selectedBooking._id && paymentState.order ? (
                     <StatusBanner tone="info" className="mt-4" title="Payment order ready">
                       Razorpay order ID: {paymentState.order.orderId}
@@ -599,6 +615,15 @@ export function ClientDashboard() {
                           {payment.status}
                         </span>
                       </div>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <Link
+                        href={`/dashboard/client/invoices/${payment._id}`}
+                        className="inline-flex items-center gap-2 rounded-full border border-[#ead9e8] px-4 py-2 text-sm font-medium text-[#2b2b2b]"
+                      >
+                        <Receipt className="h-4 w-4" />
+                        View invoice
+                      </Link>
                     </div>
                   </div>
                 ))}

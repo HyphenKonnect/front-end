@@ -56,10 +56,14 @@ type AdminUser = {
   email: string;
   role: "client" | "professional" | "admin";
   isActive?: boolean;
+  onboardingComplete?: boolean;
   phone?: string;
   profile?: {
     verified?: boolean;
     specialisation?: string;
+    serviceCategory?: "therapist" | "doctor" | "legal" | "wellness";
+    yearsExperience?: number;
+    sessionPrice?: number;
   };
 };
 
@@ -101,6 +105,18 @@ export function AdminDashboard() {
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [actionBookingId, setActionBookingId] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [savingUserId, setSavingUserId] = useState<string | null>(null);
+  const [creatingProfessional, setCreatingProfessional] = useState(false);
+  const [newProfessional, setNewProfessional] = useState({
+    name: "",
+    email: "",
+    password: "",
+    phone: "",
+    specialisation: "",
+    serviceCategory: "therapist",
+    yearsExperience: "",
+    sessionPrice: "",
+  });
 
   useEffect(() => {
     let ignore = false;
@@ -153,6 +169,19 @@ export function AdminDashboard() {
     setBookings(data);
   };
 
+  const refreshUsersAndSummary = async () => {
+    const [summaryResponse, usersResponse] = await Promise.all([
+      apiFetch("/api/admin/summary"),
+      apiFetch("/api/admin/users"),
+    ]);
+    const [summaryData, usersData] = await Promise.all([
+      parseJsonResponse<AdminSummary>(summaryResponse),
+      parseJsonResponse<AdminUser[]>(usersResponse),
+    ]);
+    setSummary(summaryData);
+    setUsers(usersData);
+  };
+
   const handleBookingAction = async (
     bookingId: string,
     action: "confirm" | "complete",
@@ -185,6 +214,114 @@ export function AdminDashboard() {
     }
   };
 
+  const handleUserAction = async (
+    userId: string,
+    action: "approve" | "suspend" | "reactivate",
+  ) => {
+    try {
+      setSavingUserId(userId);
+      setError(null);
+      const response = await apiFetch(`/api/admin/users/${userId}/${action}`, {
+        method: "PATCH",
+      });
+      await parseJsonResponse(response);
+      await refreshUsersAndSummary();
+      setSuccessMessage(
+        action === "approve"
+          ? "Professional approved successfully."
+          : action === "suspend"
+            ? "User suspended successfully."
+            : "User reactivated successfully.",
+      );
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "We could not update the user right now.",
+      );
+    } finally {
+      setSavingUserId(null);
+    }
+  };
+
+  const handleServiceAssignment = async (
+    userId: string,
+    serviceCategory: "therapist" | "doctor" | "legal" | "wellness",
+  ) => {
+    try {
+      setSavingUserId(userId);
+      setError(null);
+      const targetUser = users.find((user) => user._id === userId);
+      const response = await apiFetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          profile: {
+            ...targetUser?.profile,
+            serviceCategory,
+          },
+        }),
+      });
+      await parseJsonResponse(response);
+      await refreshUsersAndSummary();
+      setSuccessMessage("Service assignment updated successfully.");
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "We could not update the service assignment right now.",
+      );
+    } finally {
+      setSavingUserId(null);
+    }
+  };
+
+  const handleCreateProfessional = async () => {
+    try {
+      setCreatingProfessional(true);
+      setError(null);
+      const response = await apiFetch("/api/admin/professionals", {
+        method: "POST",
+        body: JSON.stringify({
+          name: newProfessional.name,
+          email: newProfessional.email,
+          password: newProfessional.password,
+          phone: newProfessional.phone,
+          profile: {
+            specialisation: newProfessional.specialisation,
+            serviceCategory: newProfessional.serviceCategory,
+            yearsExperience: newProfessional.yearsExperience
+              ? Number(newProfessional.yearsExperience)
+              : undefined,
+            sessionPrice: newProfessional.sessionPrice
+              ? Number(newProfessional.sessionPrice)
+              : undefined,
+          },
+        }),
+      });
+      await parseJsonResponse(response);
+      await refreshUsersAndSummary();
+      setSuccessMessage("New professional added successfully.");
+      setNewProfessional({
+        name: "",
+        email: "",
+        password: "",
+        phone: "",
+        specialisation: "",
+        serviceCategory: "therapist",
+        yearsExperience: "",
+        sessionPrice: "",
+      });
+    } catch (createError) {
+      setError(
+        createError instanceof Error
+          ? createError.message
+          : "We could not create the professional right now.",
+      );
+    } finally {
+      setCreatingProfessional(false);
+    }
+  };
+
   const professionalUsers = useMemo(
     () => users.filter((user) => user.role === "professional"),
     [users],
@@ -195,15 +332,24 @@ export function AdminDashboard() {
       const linkedUser = professionalUsers.find(
         (user) => user.name.toLowerCase() === professional.name.toLowerCase(),
       );
+      const serviceKey =
+        linkedUser?.profile?.serviceCategory || professional.category;
 
       return {
         id: linkedUser?._id || String(professional.id),
         name: professional.name,
         email: linkedUser?.email || "Profile email pending",
-        service: serviceLabels[professional.category],
+        service: serviceLabels[serviceKey as keyof typeof serviceLabels] || serviceLabels.all,
+        serviceKey,
         specialty: professional.specialty,
-        rate: professional.rate,
-        experience: professional.experience,
+        rate:
+          linkedUser?.profile?.sessionPrice != null
+            ? `Rs. ${linkedUser.profile.sessionPrice}/session`
+            : professional.rate,
+        experience:
+          linkedUser?.profile?.yearsExperience != null
+            ? `${linkedUser.profile.yearsExperience} years`
+            : professional.experience,
         status: linkedUser?.isActive === false ? "Paused" : "Active",
         verification:
           linkedUser?.profile?.verified || professional.available ? "Verified" : "Reviewing",
@@ -403,6 +549,61 @@ export function AdminDashboard() {
                         </div>
                       </div>
                     </div>
+                    {users.find((user) => user._id === employee.id)?.role === "professional" ? (
+                      <div className="mt-4 flex flex-col gap-3 border-t border-[#ead9e8] pt-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void handleUserAction(employee.id, "approve")}
+                            disabled={savingUserId === employee.id}
+                            className="rounded-full border border-[#ead9e8] px-4 py-2 text-xs font-medium text-[#2b2b2b] disabled:opacity-50"
+                          >
+                            Approve
+                          </button>
+                          {employee.status === "Paused" ? (
+                            <button
+                              type="button"
+                              onClick={() => void handleUserAction(employee.id, "reactivate")}
+                              disabled={savingUserId === employee.id}
+                              className="rounded-full border border-[#ead9e8] px-4 py-2 text-xs font-medium text-[#2b2b2b] disabled:opacity-50"
+                            >
+                              Reactivate
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => void handleUserAction(employee.id, "suspend")}
+                              disabled={savingUserId === employee.id}
+                              className="rounded-full border border-[#f4c7c4] px-4 py-2 text-xs font-medium text-[#f56969] disabled:opacity-50"
+                            >
+                              Suspend
+                            </button>
+                          )}
+                        </div>
+                        <label className="text-xs font-medium uppercase tracking-[0.16em] text-[#7e7e7e]">
+                          Service assignment
+                          <select
+                            value={employee.serviceKey}
+                            onChange={(event) =>
+                              void handleServiceAssignment(
+                                employee.id,
+                                event.target.value as
+                                  | "therapist"
+                                  | "doctor"
+                                  | "legal"
+                                  | "wellness",
+                              )
+                            }
+                            className="ml-0 mt-2 block rounded-full border border-[#ead9e8] bg-white px-4 py-2 text-sm font-medium normal-case tracking-normal text-[#2b2b2b] outline-none lg:ml-3 lg:inline-flex lg:mt-0"
+                          >
+                            <option value="therapist">Mental Wellness</option>
+                            <option value="doctor">Medical Consultation</option>
+                            <option value="legal">Legal Guidance</option>
+                            <option value="wellness">Wellness Programs</option>
+                          </select>
+                        </label>
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -419,16 +620,96 @@ export function AdminDashboard() {
 
           <DashboardCard title="Admin actions" className="lg:col-span-4" eyebrow="Playbook">
             <div className="space-y-4">
+              <div className="rounded-[22px] bg-[#f7f5f4] p-5">
+                <UserPlus className="h-5 w-5 text-[#f56969]" />
+                <p className="mt-3 font-semibold text-[#2b2b2b]">Add new employee</p>
+                <div className="mt-4 space-y-3">
+                  <input
+                    value={newProfessional.name}
+                    onChange={(event) =>
+                      setNewProfessional((current) => ({ ...current, name: event.target.value }))
+                    }
+                    placeholder="Full name"
+                    className="w-full rounded-[16px] border border-[#ead9e8] bg-white px-4 py-3 text-sm text-[#2b2b2b] outline-none"
+                  />
+                  <input
+                    value={newProfessional.email}
+                    onChange={(event) =>
+                      setNewProfessional((current) => ({ ...current, email: event.target.value }))
+                    }
+                    placeholder="Email"
+                    className="w-full rounded-[16px] border border-[#ead9e8] bg-white px-4 py-3 text-sm text-[#2b2b2b] outline-none"
+                  />
+                  <input
+                    value={newProfessional.password}
+                    onChange={(event) =>
+                      setNewProfessional((current) => ({ ...current, password: event.target.value }))
+                    }
+                    placeholder="Temporary password"
+                    className="w-full rounded-[16px] border border-[#ead9e8] bg-white px-4 py-3 text-sm text-[#2b2b2b] outline-none"
+                  />
+                  <input
+                    value={newProfessional.phone}
+                    onChange={(event) =>
+                      setNewProfessional((current) => ({ ...current, phone: event.target.value }))
+                    }
+                    placeholder="Phone"
+                    className="w-full rounded-[16px] border border-[#ead9e8] bg-white px-4 py-3 text-sm text-[#2b2b2b] outline-none"
+                  />
+                  <input
+                    value={newProfessional.specialisation}
+                    onChange={(event) =>
+                      setNewProfessional((current) => ({
+                        ...current,
+                        specialisation: event.target.value,
+                      }))
+                    }
+                    placeholder="Specialisation"
+                    className="w-full rounded-[16px] border border-[#ead9e8] bg-white px-4 py-3 text-sm text-[#2b2b2b] outline-none"
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <select
+                      value={newProfessional.serviceCategory}
+                      onChange={(event) =>
+                        setNewProfessional((current) => ({
+                          ...current,
+                          serviceCategory: event.target.value,
+                        }))
+                      }
+                      className="rounded-[16px] border border-[#ead9e8] bg-white px-4 py-3 text-sm text-[#2b2b2b] outline-none"
+                    >
+                      <option value="therapist">Mental Wellness</option>
+                      <option value="doctor">Medical Consultation</option>
+                      <option value="legal">Legal Guidance</option>
+                      <option value="wellness">Wellness Programs</option>
+                    </select>
+                    <input
+                      value={newProfessional.sessionPrice}
+                      onChange={(event) =>
+                        setNewProfessional((current) => ({
+                          ...current,
+                          sessionPrice: event.target.value,
+                        }))
+                      }
+                      placeholder="Session price"
+                      className="rounded-[16px] border border-[#ead9e8] bg-white px-4 py-3 text-sm text-[#2b2b2b] outline-none"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleCreateProfessional()}
+                    disabled={creatingProfessional}
+                    className="w-full rounded-full bg-[#2b2b2b] px-4 py-3 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    {creatingProfessional ? "Creating..." : "Create professional"}
+                  </button>
+                </div>
+              </div>
               {[
-                {
-                  icon: UserPlus,
-                  title: "Add new employee",
-                  text: "Create a new professional profile, attach credentials, and decide which service line they belong to before publishing.",
-                },
                 {
                   icon: ArrowRightLeft,
                   title: "Assign to services",
-                  text: "Move professionals between mental wellness, medical, legal, and wellness based on expertise and demand.",
+                  text: "Move professionals between the four care verticals directly from the employee roster.",
                 },
                 {
                   icon: IndianRupee,
@@ -588,6 +869,14 @@ export function AdminDashboard() {
                       >
                         {actionBookingId === selectedBooking._id ? "Updating..." : "Mark completed"}
                       </button>
+                    ) : null}
+                    {["confirmed", "completed"].includes(selectedBooking.status) ? (
+                      <Link
+                        href={`/consultation/${selectedBooking._id}`}
+                        className="rounded-full border border-[#ead9e8] px-4 py-2 text-xs font-medium text-[#2b2b2b]"
+                      >
+                        Open session room
+                      </Link>
                     ) : null}
                   </div>
                 </div>

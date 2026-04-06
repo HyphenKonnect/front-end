@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, Award, CheckCircle2, Globe2, MapPin, Sparkles } from "lucide-react";
-import type { ProfessionalProfile } from "./data";
+import { buildProfessionalCtaHref, type ProfessionalProfile } from "./data";
 
 export function ProfessionalProfilePage({
   professional,
@@ -60,10 +60,14 @@ export function ProfessionalProfilePage({
 
               <div className="mt-10 flex flex-col gap-4 sm:flex-row">
                 <Link
-                  href="/booking"
+                  href={buildProfessionalCtaHref(professional)}
                   className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] px-8 py-4 font-medium text-white shadow-lg"
                 >
-                  Book a session
+                  {professional.bookingMode === "request"
+                    ? "Request a session"
+                    : professional.bookingMode === "package"
+                      ? "Book legal package"
+                      : "Book a session"}
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
@@ -192,10 +196,14 @@ export function ProfessionalProfilePage({
                 availability stays current.
               </p>
               <Link
-                href="/booking"
+                href={buildProfessionalCtaHref(professional)}
                 className="mt-6 inline-flex rounded-full border border-[#ead9e8] px-6 py-3 text-sm font-medium text-[#2b2b2b]"
               >
-                Check available sessions
+                {professional.bookingMode === "request"
+                  ? "Open request form"
+                  : professional.bookingMode === "package"
+                    ? "Check package slots"
+                    : "Check available sessions"}
               </Link>
             </ContentCard>
           </div>

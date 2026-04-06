@@ -38,6 +38,8 @@ export type ProfessionalProfile = {
   workingHours?: string;
   daysOff?: string;
   feeCards?: { label: string; price: string }[];
+  bookingMode?: "standard" | "request" | "package";
+  packageSessions?: number;
 };
 
 export type BackendProfessionalRecord = {
@@ -56,6 +58,16 @@ export type BackendProfessionalRecord = {
   verified?: boolean;
   averageRating?: number;
   reviewCount?: number;
+  profile?: {
+    bio?: string;
+    specialisation?: string;
+    serviceCategory?: "therapist" | "doctor" | "legal" | "wellness";
+    qualifications?: string[];
+    expertise?: string[];
+    yearsExperience?: number;
+    sessionPrice?: number;
+    verified?: boolean;
+  };
   availability?: {
     timezone?: string;
     workingHours?: Record<
@@ -90,6 +102,8 @@ export type DirectoryProfessional = {
   workingHours?: string;
   daysOff?: string;
   backendAvailability?: BackendProfessionalRecord["availability"];
+  bookingMode?: "standard" | "request" | "package";
+  packageSessions?: number;
 };
 
 export const serviceCatalog = [
@@ -404,7 +418,9 @@ export const professionals: ProfessionalProfile[] = [
     languages: ["English"],
     workingHours: "1:30 PM - 7:00 PM",
     daysOff: "Monday and Tuesday",
-    feeCards: [{ label: "2 sessions legal package", price: "Rs. 3000" }],
+    feeCards: [{ label: "2 sessions legal package", price: "Rs. 4000" }],
+    bookingMode: "package",
+    packageSessions: 2,
   },
   {
     id: 7,
@@ -416,7 +432,7 @@ export const professionals: ProfessionalProfile[] = [
     rating: 0,
     reviews: 0,
     experience: "6 years",
-    rate: "Rs. 1200/session",
+    rate: "Available on request",
     available: true,
     location: "Hyderabad",
     intro:
@@ -435,6 +451,8 @@ export const professionals: ProfessionalProfile[] = [
     approach:
       "Direct, strategic legal counsel with a focus on clarity, defence preparation, and client confidence.",
     languages: ["English", "Telugu", "Hindi"],
+    workingHours: "Available on special request",
+    bookingMode: "request",
   },
   {
     id: 8,
@@ -446,7 +464,7 @@ export const professionals: ProfessionalProfile[] = [
     rating: 0,
     reviews: 0,
     experience: "6+ years",
-    rate: "Rs. 3000 / 2 sessions",
+    rate: "Available on request",
     available: true,
     location: "Hyderabad",
     intro:
@@ -466,7 +484,8 @@ export const professionals: ProfessionalProfile[] = [
     approach:
       "Ethical, solution-oriented representation that keeps communication clear and actionable.",
     languages: ["English", "Telugu", "Hindi"],
-    feeCards: [{ label: "2 sessions legal package", price: "Rs. 3000" }],
+    workingHours: "Available on special request",
+    bookingMode: "request",
   },
   {
     id: 9,
@@ -632,7 +651,7 @@ export const professionals: ProfessionalProfile[] = [
     rating: 0,
     reviews: 0,
     experience: "4 years",
-    rate: "On request",
+    rate: "Rs. 4000 / 2 sessions",
     available: true,
     location: "Dubai",
     intro:
@@ -693,6 +712,9 @@ export const professionals: ProfessionalProfile[] = [
     approach:
       "Research-backed, detail-oriented legal assistance focused on practical clarity.",
     languages: ["English", "Telugu", "Hindi"],
+    feeCards: [{ label: "2 sessions legal package", price: "Rs. 4000" }],
+    bookingMode: "package",
+    packageSessions: 2,
   },
   {
     id: 15,
@@ -704,7 +726,7 @@ export const professionals: ProfessionalProfile[] = [
     rating: 0,
     reviews: 0,
     experience: "3+ years",
-    rate: "Rs. 3000 / 2 sessions",
+    rate: "Rs. 4000 / 2 sessions",
     available: true,
     location: "Mumbai",
     intro:
@@ -723,7 +745,9 @@ export const professionals: ProfessionalProfile[] = [
     approach:
       "Balanced legal strategy that aims for clarity, speed, and fair outcomes without losing empathy.",
     languages: ["English", "Hindi", "Marathi"],
-    feeCards: [{ label: "2 sessions legal package", price: "Rs. 3000" }],
+    feeCards: [{ label: "2 sessions legal package", price: "Rs. 4000" }],
+    bookingMode: "package",
+    packageSessions: 2,
   },
 ];
 
@@ -785,7 +809,10 @@ export function mapBackendProfessionalToDirectory(
 ): DirectoryProfessional {
   const localMatch = getProfessionalByName(professional.name);
   const specialty =
-    professional.specialisation || localMatch?.specialty || "Specialist";
+    professional.profile?.specialisation ||
+    professional.specialisation ||
+    localMatch?.specialty ||
+    "Specialist";
 
   return {
     id: professional.id || professional._id,
@@ -793,22 +820,64 @@ export function mapBackendProfessionalToDirectory(
     slug: localMatch?.slug,
     name: professional.name,
     specialty,
-    category: localMatch?.category || inferProfessionalCategory(specialty),
+    category:
+      professional.profile?.serviceCategory ||
+      localMatch?.category ||
+      inferProfessionalCategory(specialty),
     image: localMatch?.image || professional.avatar || "/brand-logo.png",
     rating: professional.averageRating || localMatch?.rating || 0,
     reviews: professional.reviewCount || localMatch?.reviews || 0,
-    experience: professional.yearsExperience
-      ? `${professional.yearsExperience} years`
+    experience: professional.profile?.yearsExperience || professional.yearsExperience
+      ? `${professional.profile?.yearsExperience || professional.yearsExperience} years`
       : localMatch?.experience || "Experience available",
-    rate: professional.sessionPrice
-      ? `Rs. ${professional.sessionPrice}/session`
-      : localMatch?.rate || "Contact for pricing",
+    rate:
+      localMatch?.bookingMode === "request" || localMatch?.bookingMode === "package"
+        ? localMatch.rate
+        : professional.profile?.sessionPrice || professional.sessionPrice
+          ? `Rs. ${professional.profile?.sessionPrice || professional.sessionPrice}/session`
+          : localMatch?.rate || "Contact for pricing",
     available: professional.isActive ?? localMatch?.available ?? true,
     location: localMatch?.location,
     workingHours: localMatch?.workingHours,
     daysOff: localMatch?.daysOff,
     backendAvailability: professional.availability,
+    bookingMode: localMatch?.bookingMode || "standard",
+    packageSessions: localMatch?.packageSessions,
   };
+}
+
+export function buildProfessionalCtaHref(
+  professional: Pick<
+    DirectoryProfessional,
+    "slug" | "category" | "name" | "bookingMode"
+  >,
+) {
+  const serviceSlug =
+    professional.category === "therapist"
+      ? "mental-wellness"
+      : professional.category === "doctor"
+        ? "medical-consultation"
+        : professional.category === "legal"
+          ? "legal-guidance"
+          : "wellness-programs";
+
+  if (professional.bookingMode === "request") {
+    const params = new URLSearchParams({
+      service: serviceSlug,
+      professional: professional.name,
+      mode: "request",
+    });
+    return `/contact?${params.toString()}`;
+  }
+
+  const params = new URLSearchParams({ service: serviceSlug });
+  if (professional.slug) {
+    params.set("professional", professional.slug);
+  }
+  if (professional.bookingMode === "package") {
+    params.set("package", "two-session");
+  }
+  return `/booking?${params.toString()}`;
 }
 
 export const professionalCategories = [

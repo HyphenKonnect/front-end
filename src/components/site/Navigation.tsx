@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { roleToDashboard } from "../auth/ProtectedRoute";
+import { NotificationBell } from "./NotificationBell";
 
 const navItems = [
   { label: "Home", href: "/" },
@@ -189,6 +190,7 @@ export function Navigation() {
           <div className="hidden items-center gap-4 lg:flex">
             {isAuthenticated ? (
               <>
+                <NotificationBell />
                 <Link
                   href={dashboardHref}
                   className="font-medium text-[#2b2b2b] transition-colors hover:text-[#f56969]"
@@ -272,6 +274,9 @@ export function Navigation() {
               <div className="space-y-3 pt-4">
                 {isAuthenticated ? (
                   <>
+                    <div className="flex justify-center">
+                      <NotificationBell />
+                    </div>
                     <Link
                       href={dashboardHref}
                       onClick={closeMobileMenu}
