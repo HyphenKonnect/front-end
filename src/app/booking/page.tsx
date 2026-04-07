@@ -105,6 +105,7 @@ function BookingPageContent() {
   const continueButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const initialService = searchParams.get("service") || "";
+  const requestedProfessional = searchParams.get("professional") || "";
 
   // State
   const [step, setStep] = useState(1);
@@ -302,6 +303,24 @@ function BookingPageContent() {
       null,
     [professionalOptions, selectedProfessional],
   );
+
+  useEffect(() => {
+    if (!requestedProfessional || !professionalOptions.length || selectedProfessional) {
+      return;
+    }
+
+    const normalizedRequested = normalizeProfessionalName(requestedProfessional);
+    const matchedProfessional = professionalOptions.find(
+      (professional) =>
+        professional.slug === requestedProfessional ||
+        normalizeProfessionalName(professional.name) === normalizedRequested,
+    );
+
+    if (!matchedProfessional) return;
+
+    setSelectedProfessional(String(matchedProfessional.id));
+    setStep(2);
+  }, [professionalOptions, requestedProfessional, selectedProfessional]);
 
   console.log("Selected Professional Object:", selectedPro);
   console.log("Availability Data:", selectedPro?.availability);
@@ -514,84 +533,96 @@ function BookingPageContent() {
         throw new Error("Booking was created but no booking ID was returned.");
       }
 
-      const orderResponse = await apiFetch("/api/payments/create-order", {
-        method: "POST",
-        body: JSON.stringify({ bookingId }),
-      });
+      try {
+        const orderResponse = await apiFetch("/api/payments/create-order", {
+          method: "POST",
+          body: JSON.stringify({ bookingId }),
+        });
 
-      const order = await parseJsonResponse<{
-        bookingId: string | null;
-        orderId: string;
-        amount: number;
-        currency: string;
-        key: string;
-      }>(orderResponse);
+        const order = await parseJsonResponse<{
+          bookingId: string | null;
+          orderId: string;
+          amount: number;
+          currency: string;
+          key: string;
+        }>(orderResponse);
 
-      await openRazorpayCheckout({
-        order: {
-          bookingId: order.bookingId || bookingId,
-          orderId: order.orderId,
-          amount: order.amount,
-          currency: order.currency,
-          key: order.key,
-        },
-        name: "The Hyphen Konnect",
-        description: `${
-          serviceCatalog.find((service) => service.slug === selectedService)
-            ?.title || "Session"
-        } session`,
-        prefill: {
-          name: user?.name,
-          email: user?.email,
-          contact: user?.phone,
-        },
-        onSuccess: async (paymentResponse) => {
-          const verifyResponse = await apiFetch("/api/payments/verify", {
-            method: "POST",
-            body: JSON.stringify({
+        await openRazorpayCheckout({
+          order: {
+            bookingId: order.bookingId || bookingId,
+            orderId: order.orderId,
+            amount: order.amount,
+            currency: order.currency,
+            key: order.key,
+          },
+          name: "The Hyphen Konnect",
+          description: `${
+            serviceCatalog.find((service) => service.slug === selectedService)
+              ?.title || "Session"
+          } session`,
+          prefill: {
+            name: user?.name,
+            email: user?.email,
+            contact: user?.phone,
+          },
+          onSuccess: async (paymentResponse) => {
+            const verifyResponse = await apiFetch("/api/payments/verify", {
+              method: "POST",
+              body: JSON.stringify({
+                bookingId,
+                orderId: paymentResponse.razorpay_order_id,
+                paymentId: paymentResponse.razorpay_payment_id,
+                signature: paymentResponse.razorpay_signature,
+              }),
+            });
+
+            const verification = await parseJsonResponse<{
+              success: boolean;
+              method?: string;
+            }>(verifyResponse);
+
+            const confirmResponse = await apiFetch(`/api/bookings/${bookingId}/confirm`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                paymentId: paymentResponse.razorpay_payment_id,
+                paymentMethod: verification.method || "upi",
+                orderId: paymentResponse.razorpay_order_id,
+                signature: paymentResponse.razorpay_signature,
+              }),
+            });
+            await parseJsonResponse(confirmResponse);
+
+            setBookingSuccess({
               bookingId,
-              orderId: paymentResponse.razorpay_order_id,
-              paymentId: paymentResponse.razorpay_payment_id,
-              signature: paymentResponse.razorpay_signature,
-            }),
-          });
+              scheduledAt: data.scheduledAt || scheduledAt.toISOString(),
+            });
+            router.push(
+              `/dashboard/client?bookingId=${encodeURIComponent(bookingId)}&status=confirmed`,
+            );
+          },
+          onFailure: (message) => {
+            setBookingError(message);
+          },
+          onDismiss: () => {
+            setBookingError(
+              "Payment window closed before completion. Your booking is pending payment in the dashboard.",
+            );
+            router.push(
+              `/dashboard/client?bookingId=${encodeURIComponent(bookingId)}&action=pay&status=booked`,
+            );
+          },
+        });
+      } catch (paymentError) {
+        const message =
+          paymentError instanceof Error
+            ? paymentError.message
+            : "Payment setup failed. Continue payment from the dashboard.";
 
-          const verification = await parseJsonResponse<{
-            success: boolean;
-            method?: string;
-          }>(verifyResponse);
-
-          const confirmResponse = await apiFetch(`/api/bookings/${bookingId}/confirm`, {
-            method: "PATCH",
-            body: JSON.stringify({
-              paymentId: paymentResponse.razorpay_payment_id,
-              paymentMethod: verification.method || "upi",
-              orderId: paymentResponse.razorpay_order_id,
-              signature: paymentResponse.razorpay_signature,
-            }),
-          });
-          await parseJsonResponse(confirmResponse);
-
-          setBookingSuccess({
-            bookingId,
-            scheduledAt: data.scheduledAt || scheduledAt.toISOString(),
-          });
-          router.push(
-            `/dashboard/client?bookingId=${encodeURIComponent(bookingId)}&status=confirmed`,
-          );
-        },
-        onFailure: (message) => {
-          setBookingError(message);
-        },
-        onDismiss: () => {
-          setBookingError(
-            "Payment window closed before completion. Your booking is pending payment in the dashboard.",
-          );
-          router.push(
-            `/dashboard/client?bookingId=${encodeURIComponent(bookingId)}&action=pay&status=booked`,
-          );
-        },
-      });
+        setBookingError(message);
+        router.push(
+          `/dashboard/client?bookingId=${encodeURIComponent(bookingId)}&action=pay&status=booked`,
+        );
+      }
     } catch (error) {
       setBookingError(
         error instanceof Error ? error.message : "Could not create booking.",
