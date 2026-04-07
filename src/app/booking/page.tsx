@@ -13,7 +13,7 @@ import {
 import { StatusBanner } from "../../components/ui/StatusBanner";
 import { apiFetch, parseJsonResponse } from "../../lib/api";
 import { formatInr } from "../../lib/formatting";
-import { openRazorpayCheckout } from "../../lib/razorpay";
+import { loadRazorpayScript, openRazorpayCheckout } from "../../lib/razorpay";
 import { useAuth } from "../../components/auth/AuthProvider";
 
 const MONTH_NAMES = [
@@ -128,6 +128,14 @@ function BookingPageContent() {
     scheduledAt: string;
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const expectedCategory = useMemo(() => {
+    if (selectedService === "mental-wellness") return "therapist";
+    if (selectedService === "medical-consultation") return "doctor";
+    if (selectedService === "legal-guidance") return "legal";
+    if (selectedService === "wellness-programs") return "wellness";
+    return null;
+  }, [selectedService]);
 
   console.log("🎯 Booking Page Loaded");
   console.log("Selected Professional:", selectedProfessional);
@@ -281,8 +289,12 @@ function BookingPageContent() {
   }, [selectedService]);
 
   const professionalOptions = useMemo(() => {
-    return directoryProfessionals;
-  }, [directoryProfessionals]);
+    if (!expectedCategory) return directoryProfessionals;
+
+    return directoryProfessionals.filter(
+      (professional) => professional.category === expectedCategory,
+    );
+  }, [directoryProfessionals, expectedCategory]);
 
   const selectedPro = useMemo(
     () =>
@@ -298,6 +310,12 @@ function BookingPageContent() {
     () => buildCalendarDays(visibleMonth),
     [visibleMonth],
   );
+
+  useEffect(() => {
+    if (step === 4 && isAuthenticated) {
+      void loadRazorpayScript();
+    }
+  }, [isAuthenticated, step]);
 
   // ============================================================
   // CHECK IF DATE IS WORKING DAY - THIS IS THE KEY FUNCTION
@@ -336,7 +354,7 @@ function BookingPageContent() {
     const workingHours = availability.workingHours?.[dayName];
 
     // If no working hours for this day, it's not a working day
-    if (!workingHours) {
+    if (!hasWorkingWindow(workingHours)) {
       console.log(`❌ No working hours for ${dayName}`);
       return false;
     }
@@ -387,7 +405,7 @@ function BookingPageContent() {
     console.log(`🕐 Getting slots for ${DAY_NAMES[selectedDate.getDay()]}:`);
     console.log(`   Working hours:`, workingHours);
 
-    if (!workingHours) {
+    if (!workingHours || !hasWorkingWindow(workingHours)) {
       console.log("No working hours found");
       return [];
     }
@@ -1293,6 +1311,13 @@ function createWorkingWindow(slots: TimeSlot[]): WorkingHours {
     end: slots[slots.length - 1].end,
     slots,
   };
+}
+
+function hasWorkingWindow(workingHours?: WorkingHours | null) {
+  if (!workingHours) return false;
+  if (workingHours.slots?.length) return true;
+
+  return Boolean(workingHours.start && workingHours.end);
 }
 
 function parseDaysOffText(input = "") {
