@@ -474,10 +474,16 @@ function BookingPageContent() {
       setBookingSuccess(null);
 
       const scheduledAt = combineDateAndTime(selectedDate, selectedTime);
+      if (!selectedPro.backendId) {
+        throw new Error(
+          `${selectedPro.name} is not yet available for live booking. Please choose a professional with live availability.`,
+        );
+      }
+
       const response = await apiFetch("/api/bookings", {
         method: "POST",
         body: JSON.stringify({
-          professionalId: selectedPro.backendId || selectedPro.id,
+          professionalId: selectedPro.backendId,
           serviceId: selectedService,
           scheduledAt: scheduledAt.toISOString(),
         }),
@@ -660,6 +666,7 @@ function BookingPageContent() {
                 {professionalOptions.map((pro) => (
                   <button
                     key={pro.id}
+                    disabled={!pro.backendId}
                     onClick={() => {
                       console.log("Selected professional:", pro.name);
                       console.log(
@@ -675,7 +682,7 @@ function BookingPageContent() {
                       selectedProfessional === String(pro.id)
                         ? "border-2 border-[#f56969] shadow-lg"
                         : "border border-[#e9e2df]"
-                    }`}
+                    } ${!pro.backendId ? "cursor-not-allowed opacity-60" : ""}`}
                   >
                     <div className="bg-[#f4efeb] p-3">
                       {pro.image && !pro.image.includes("brand-logo") ? (
@@ -710,6 +717,11 @@ function BookingPageContent() {
                       <p className="mt-1 font-semibold text-[#2b2b2b]">
                         {pro.rate}
                       </p>
+                      {!pro.backendId ? (
+                        <p className="mt-3 text-[12px] font-medium text-[#b36b62]">
+                          Booking not live yet for this professional.
+                        </p>
+                      ) : null}
                     </div>
                   </button>
                 ))}
