@@ -719,7 +719,7 @@ export function AdminDashboard() {
                 {
                   icon: BellRing,
                   title: "Notify teams",
-                  text: "Use this lane later for onboarding reminders, schedule changes, and platform-wide updates.",
+                  text: "Coordinate onboarding reminders, schedule changes, and important platform updates.",
                 },
               ].map((item) => (
                 <div key={item.title} className="rounded-[22px] bg-[#f7f5f4] p-5">

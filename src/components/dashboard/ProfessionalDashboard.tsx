@@ -308,7 +308,7 @@ export function ProfessionalDashboard() {
       <DashboardShell
         accent="Professional Dashboard"
         title={user?.name || "Professional workspace"}
-        description="This is the foundation for profile setup, booking management, payout visibility, and later your calendar, video room, and secure messaging."
+        description="Manage your profile, bookings, availability, and earnings in one place."
         actions={
           <>
             <Link

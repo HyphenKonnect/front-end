@@ -354,7 +354,7 @@ export function ClientDashboard() {
       <DashboardShell
         accent="Client Dashboard"
         title={`Hello${user?.name ? `, ${user.name}` : ""}`}
-        description="Track appointments, payments, and next steps in one place while we replace the old WordPress and Amelia flow with a platform that is fully yours."
+        description="Track appointments, payments, and session details in one place."
         actions={
           <>
             <Link
@@ -398,7 +398,9 @@ export function ClientDashboard() {
               {
                 label: "Profile status",
                 value: user?.onboardingComplete ? "Ready" : "Setup",
-                note: "We can add profile completion later in Phase 2",
+                note: user?.onboardingComplete
+                  ? "Your account is ready for booking."
+                  : "Complete your account details to get started.",
               },
               {
                 label: "Payments",
@@ -517,9 +519,9 @@ export function ClientDashboard() {
           </DashboardCard>
 
           <DashboardCard
-            title={selectedBooking ? "Booking details" : "What comes next"}
+            title={selectedBooking ? "Booking details" : "Helpful information"}
             className="lg:col-span-4"
-            eyebrow={selectedBooking ? "Selected session" : "Roadmap"}
+            eyebrow={selectedBooking ? "Selected session" : "Guide"}
           >
             {selectedBooking ? (
               <div className="space-y-4">
@@ -609,23 +611,23 @@ export function ClientDashboard() {
                 {[
                   {
                     icon: CalendarDays,
-                    title: "Booking flow",
-                    text: "Bookings now save live. Next we can add rescheduling and richer session states.",
+                    title: "Bookings",
+                    text: "Review your upcoming and past sessions here, along with their current status.",
                   },
                   {
                     icon: Video,
-                    title: "Video room",
-                    text: "Daily.co is the cleanest v1 option for client-professional calls.",
+                    title: "Online sessions",
+                    text: "Join your confirmed sessions from the dashboard when your meeting room is ready.",
                   },
                   {
                     icon: MessageSquare,
-                    title: "Messaging",
-                    text: "Socket.io chat can sit on top once sessions and roles are stable.",
+                    title: "Messages",
+                    text: "Use your session conversation space to stay in touch with your professional.",
                   },
                   {
                     icon: CreditCard,
                     title: "Invoices",
-                    text: "Payment history is beginning to surface here and can expand after Razorpay screens land.",
+                    text: "View payment history and invoices for completed transactions.",
                   },
                 ].map((item) => (
                   <div key={item.title} className="rounded-[22px] bg-[#f7f5f4] p-5">
