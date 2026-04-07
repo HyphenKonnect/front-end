@@ -214,7 +214,7 @@ export default function ContactPage() {
       </section>
 
       <GradientCta
-        title="Need Help Right away?"
+        title="Need Help Right Away?"
         description="Book a session online or browse available professionals to find the right kind of support."
         primaryHref="/booking"
         primaryLabel="Book a Session"
