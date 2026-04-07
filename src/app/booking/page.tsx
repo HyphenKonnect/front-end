@@ -195,7 +195,8 @@ function BookingPageContent() {
             Array.isArray(backendData) &&
             backendData.length > 0
           ) {
-            // Map backend data with availability
+            // Merge live backend records into the curated local directory so
+            // partial backend data does not replace the full catalogue.
             const mappedProfs = backendData
               .map((prof) => {
                 const localMatch = professionals.find(
@@ -240,7 +241,23 @@ function BookingPageContent() {
               })
               .filter(Boolean);
 
-            setDirectoryProfessionals(mappedProfs);
+            const mergedByName = new Map<string, ProfessionalData>();
+
+            for (const professional of localProfs) {
+              mergedByName.set(
+                normalizeProfessionalName(professional.name),
+                professional,
+              );
+            }
+
+            for (const professional of mappedProfs) {
+              mergedByName.set(
+                normalizeProfessionalName(professional.name),
+                professional,
+              );
+            }
+
+            setDirectoryProfessionals(Array.from(mergedByName.values()));
           } else {
             setDirectoryProfessionals(localProfs);
           }
@@ -1275,4 +1292,8 @@ function normalizeDateString(value: string) {
   if (Number.isNaN(parsed.getTime())) return value;
 
   return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")}`;
+}
+
+function normalizeProfessionalName(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
