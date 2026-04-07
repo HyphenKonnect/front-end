@@ -13,6 +13,7 @@ import {
 import { StatusBanner } from "../../components/ui/StatusBanner";
 import { apiFetch, parseJsonResponse } from "../../lib/api";
 import { formatInr } from "../../lib/formatting";
+import { openRazorpayCheckout } from "../../lib/razorpay";
 import { useAuth } from "../../components/auth/AuthProvider";
 
 const MONTH_NAMES = [
@@ -98,7 +99,7 @@ export default function BookingPage() {
 function BookingPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const today = useMemo(() => startOfDay(new Date()), []);
   const timeSlotsRef = useRef<HTMLDivElement | null>(null);
   const continueButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -494,16 +495,85 @@ function BookingPageContent() {
       if (!bookingId) {
         throw new Error("Booking was created but no booking ID was returned.");
       }
-      setBookingSuccess({
-        bookingId,
-        scheduledAt: data.scheduledAt || scheduledAt.toISOString(),
+
+      const orderResponse = await apiFetch("/api/payments/create-order", {
+        method: "POST",
+        body: JSON.stringify({ bookingId }),
       });
 
-      if (bookingId) {
-        router.push(
-          `/dashboard/client?bookingId=${encodeURIComponent(bookingId)}&action=pay&status=booked`,
-        );
-      }
+      const order = await parseJsonResponse<{
+        bookingId: string | null;
+        orderId: string;
+        amount: number;
+        currency: string;
+        key: string;
+      }>(orderResponse);
+
+      await openRazorpayCheckout({
+        order: {
+          bookingId: order.bookingId || bookingId,
+          orderId: order.orderId,
+          amount: order.amount,
+          currency: order.currency,
+          key: order.key,
+        },
+        name: "The Hyphen Konnect",
+        description: `${
+          serviceCatalog.find((service) => service.slug === selectedService)
+            ?.title || "Session"
+        } session`,
+        prefill: {
+          name: user?.name,
+          email: user?.email,
+          contact: user?.phone,
+        },
+        onSuccess: async (paymentResponse) => {
+          const verifyResponse = await apiFetch("/api/payments/verify", {
+            method: "POST",
+            body: JSON.stringify({
+              bookingId,
+              orderId: paymentResponse.razorpay_order_id,
+              paymentId: paymentResponse.razorpay_payment_id,
+              signature: paymentResponse.razorpay_signature,
+            }),
+          });
+
+          const verification = await parseJsonResponse<{
+            success: boolean;
+            method?: string;
+          }>(verifyResponse);
+
+          const confirmResponse = await apiFetch(`/api/bookings/${bookingId}/confirm`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              paymentId: paymentResponse.razorpay_payment_id,
+              paymentMethod: verification.method || "upi",
+              orderId: paymentResponse.razorpay_order_id,
+              signature: paymentResponse.razorpay_signature,
+            }),
+          });
+          await parseJsonResponse(confirmResponse);
+
+          setBookingSuccess({
+            bookingId,
+            scheduledAt: data.scheduledAt || scheduledAt.toISOString(),
+          });
+          router.push(
+            `/dashboard/client?bookingId=${encodeURIComponent(bookingId)}&status=confirmed`,
+          );
+        },
+        onFailure: (message) => {
+          setBookingError(message);
+        },
+        onDismiss: () => {
+          setBookingError(
+            "Payment window closed before completion. Your booking is pending payment in the dashboard.",
+          );
+          router.push(
+            `/dashboard/client?bookingId=${encodeURIComponent(bookingId)}&action=pay&status=booked`,
+          );
+        },
+      });
     } catch (error) {
       setBookingError(
         error instanceof Error ? error.message : "Could not create booking.",
