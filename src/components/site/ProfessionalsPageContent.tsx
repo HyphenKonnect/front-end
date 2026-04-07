@@ -46,6 +46,27 @@ export function ProfessionalsPageContent({
   const [searchTerm, setSearchTerm] = useState("");
   const [directory, setDirectory] = useState<DirectoryProfessional[]>(professionals);
   const [usingLiveData, setUsingLiveData] = useState(false);
+  const fallbackDirectory = useMemo<DirectoryProfessional[]>(
+    () => professionals.map((professional) => ({
+      id: professional.id,
+      slug: professional.slug,
+      name: professional.name,
+      specialty: professional.specialty,
+      category: professional.category,
+      image: professional.image,
+      rating: professional.rating,
+      reviews: professional.reviews,
+      experience: professional.experience,
+      rate: professional.rate,
+      available: professional.available,
+      location: professional.location,
+      workingHours: professional.workingHours,
+      daysOff: professional.daysOff,
+      bookingMode: professional.bookingMode,
+      packageSessions: professional.packageSessions,
+    })),
+    [],
+  );
 
   useEffect(() => {
     setCategory(initialCategory);
@@ -84,6 +105,19 @@ export function ProfessionalsPageContent({
       return matchesCategory && matchesSearch;
     });
   }, [category, directory, searchTerm]);
+
+  const fallbackFiltered = useMemo(() => {
+    return fallbackDirectory.filter((professional) => {
+      const matchesCategory =
+        category === "all" || professional.category === category;
+      const matchesSearch =
+        professional.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        professional.specialty.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [category, fallbackDirectory, searchTerm]);
+
+  const displayedProfessionals = filtered.length ? filtered : fallbackFiltered;
 
   return (
     <div className="pt-20">
@@ -126,12 +160,14 @@ export function ProfessionalsPageContent({
 
           <p className="mb-6 text-sm text-[#7e7e7e]">
             {usingLiveData
-              ? "Showing live professionals from Railway."
+              ? filtered.length
+                ? "Showing live professionals from the platform."
+                : "Live data is available, but this view is using fallback profiles until category details fully match."
               : "Showing local fallback data until the live professionals endpoint is accessible."}
           </p>
 
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((professional) => (
+            {displayedProfessionals.map((professional) => (
               <div
                 key={professional.id}
                 className="overflow-hidden rounded-[28px] border border-[#e9e2df] bg-white shadow-[0_14px_36px_rgba(29,25,22,0.06)]"
@@ -218,6 +254,11 @@ export function ProfessionalsPageContent({
               </div>
             ))}
           </div>
+          {!displayedProfessionals.length ? (
+            <div className="mt-8 rounded-[24px] border border-dashed border-[#ead9e8] bg-[#fcfbfb] p-6 text-sm text-[#7e7e7e]">
+              No professionals match this category right now. Try another category or search term.
+            </div>
+          ) : null}
         </div>
       </section>
 

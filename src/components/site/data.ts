@@ -820,6 +820,15 @@ export function mapBackendProfessionalToDirectory(
     professional.specialisation ||
     localMatch?.specialty ||
     "Specialist";
+  const categorySource = [
+    specialty,
+    professional.profile?.bio,
+    professional.bio,
+    ...(professional.profile?.expertise || []),
+    ...(professional.expertise || []),
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return {
     id: professional.id || professional._id,
@@ -830,7 +839,7 @@ export function mapBackendProfessionalToDirectory(
     category:
       professional.profile?.serviceCategory ||
       localMatch?.category ||
-      inferProfessionalCategory(specialty),
+      inferProfessionalCategory(categorySource),
     image: localMatch?.image || professional.avatar || "/brand-logo.png",
     rating: professional.averageRating || localMatch?.rating || 0,
     reviews: professional.reviewCount || localMatch?.reviews || 0,

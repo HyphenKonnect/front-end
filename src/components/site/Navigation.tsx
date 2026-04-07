@@ -239,9 +239,9 @@ export function Navigation() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.2 }}
-            className="fixed left-0 right-0 top-[68px] z-40 bg-white shadow-lg lg:hidden"
+            className="fixed left-0 right-0 top-[68px] z-40 max-h-[calc(100vh-68px)] overflow-y-auto bg-white shadow-lg lg:hidden"
           >
-            <div className="space-y-4 px-6 py-8">
+            <div className="space-y-4 px-6 py-8 pb-24">
               {navItems.map((item) => (
                 <div key={item.label}>
                   <Link
@@ -271,7 +271,7 @@ export function Navigation() {
                 </div>
               ))}
 
-              <div className="space-y-3 pt-4">
+              <div className="space-y-3 border-t border-[#f1ece9] pt-5">
                 {isAuthenticated ? (
                   <>
                     <div className="flex justify-center">
