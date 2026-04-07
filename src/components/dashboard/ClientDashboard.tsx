@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { CalendarDays, CreditCard, MessageSquare, Receipt, Video } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { ProtectedRoute } from "../auth/ProtectedRoute";
@@ -76,7 +77,11 @@ type PaymentHistoryRecord = {
 };
 
 export function ClientDashboard() {
+  const searchParams = useSearchParams();
   const { user } = useAuth();
+  const requestedBookingId = searchParams.get("bookingId");
+  const requestedAction = searchParams.get("action");
+  const requestedStatus = searchParams.get("status");
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [payments, setPayments] = useState<PaymentHistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,6 +134,31 @@ export function ClientDashboard() {
       ignore = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!bookings.length) return;
+
+    if (requestedBookingId) {
+      const targetBooking = bookings.find((booking) => booking._id === requestedBookingId);
+      if (targetBooking) {
+        setSelectedBookingId(targetBooking._id);
+      }
+    }
+  }, [bookings, requestedBookingId]);
+
+  useEffect(() => {
+    if (requestedStatus !== "booked" || !requestedBookingId || requestedAction !== "pay") {
+      return;
+    }
+
+    const targetBooking = bookings.find((booking) => booking._id === requestedBookingId);
+    if (!targetBooking) return;
+    if (targetBooking.paymentStatus === "captured") return;
+    if (paymentState?.bookingId === requestedBookingId) return;
+
+    setSuccessMessage("Booking created. Complete payment to confirm your session.");
+    void handleCreatePaymentOrder(requestedBookingId);
+  }, [bookings, paymentState?.bookingId, requestedAction, requestedBookingId, requestedStatus]);
 
   const refreshBookings = async () => {
     const [bookingsResponse, paymentsResponse] = await Promise.all([

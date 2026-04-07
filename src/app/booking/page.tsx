@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle, LoaderCircle } from "lucide-react";
 import {
   professionals,
@@ -97,6 +97,7 @@ export default function BookingPage() {
 
 function BookingPageContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const today = useMemo(() => startOfDay(new Date()), []);
   const timeSlotsRef = useRef<HTMLDivElement | null>(null);
@@ -480,10 +481,17 @@ function BookingPageContent() {
       });
 
       const data = await parseJsonResponse<BookingCreationResponse>(response);
+      const bookingId = data.bookingId || data._id;
       setBookingSuccess({
-        bookingId: data.bookingId || data._id,
+        bookingId,
         scheduledAt: data.scheduledAt || scheduledAt.toISOString(),
       });
+
+      if (bookingId) {
+        router.push(
+          `/dashboard/client?bookingId=${encodeURIComponent(bookingId)}&action=pay&status=booked`,
+        );
+      }
     } catch (error) {
       setBookingError(
         error instanceof Error ? error.message : "Could not create booking.",

@@ -10,14 +10,14 @@ const team = [
   {
     name: "Yogitha Rao",
     role: "Founder & CEO",
-    image: "/yogitha-rao.png",
+    image: "/yogitha-Rao.png",
     specialty:
       "An ISB graduate, Yogitha founded THK to bridge the critical gap in support for abuse survivors and those seeking holistic wellness. With a vision to create a one-stop platform for mental health, medical, and legal care, she is committed to ensuring that every individual who reaches out finds healing, strength, and hope.",
   },
   {
     name: "Sreshta Rao",
     role: "Co-Founder & Head, Legal Counsel",
-    image: "/sreshta-rao.png",
+    image: "/sreshta-Rao.png",
     specialty:
       "Sreshta holds a Human Rights Law degree from the University of Edinburgh and extensive experience across NGOs. She has also worked for the rights of Afghan refugees in the UK, strengthening her global perspective on justice. With a dedicated team of lawyers, she offers expert legal support to survivors of abuse.",
   },
