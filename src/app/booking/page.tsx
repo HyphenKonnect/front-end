@@ -362,16 +362,35 @@ function BookingPageContent() {
   }, [directory, rescheduleBooking]);
 
   const professionalOptions = useMemo(() => {
-    return directory.filter((item) => {
-      if (!selectedService) return false;
+    if (!selectedService) return [];
+
+    // First, try the normal category filter
+    const filtered = directory.filter((item) => {
       if (selectedService === "mental-wellness")
         return item.category === "therapist";
       if (selectedService === "medical-consultation")
         return item.category === "doctor";
       if (selectedService === "legal-guidance")
         return item.category === "legal";
-      return item.category === "wellness";
+      if (selectedService === "wellness-programs")
+        return item.category === "wellness";
+      return false;
     });
+
+    // If category filter returns nothing but we have professionals, show all as fallback
+    if (filtered.length === 0 && directory.length > 0) {
+      console.warn(
+        "⚠️ Category filter returned 0 results. Showing all professionals.",
+      );
+      console.log("📊 Directory has", directory.length, "professionals");
+      console.log("📊 First professional:", directory[0]);
+      console.log("📊 Category values found:", [
+        ...new Set(directory.map((p) => p.category)),
+      ]);
+      return directory;
+    }
+
+    return filtered;
   }, [directory, selectedService]);
 
   const selectedPro = useMemo(
@@ -961,13 +980,24 @@ function BookingPageContent() {
                   }`}
                 >
                   <div className="bg-[#f4efeb] p-3">
-                    <Image
-                      src={pro.image}
-                      alt={pro.name}
-                      width={900}
-                      height={600}
-                      className="h-[220px] w-full rounded-[18px] object-cover object-[center_20%]"
-                    />
+                    {pro.image ? (
+                      <Image
+                        src={pro.image}
+                        alt={pro.name}
+                        width={900}
+                        height={600}
+                        className="h-[220px] w-full rounded-[18px] object-cover object-[center_20%]"
+                      />
+                    ) : (
+                      <div className="h-[220px] w-full rounded-[18px] bg-gradient-to-br from-[#f5912d] via-[#f56969] to-[#e6b9e6] flex items-center justify-center">
+                        <span className="text-[80px] font-bold text-white opacity-80">
+                          {pro.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <div className="p-6 pt-5">
                     <div className="mb-3 flex items-start justify-between gap-3">
@@ -1154,11 +1184,20 @@ function BookingPageContent() {
                   <div className="rounded-[28px] bg-white p-5 shadow-[0_18px_45px_rgba(29,25,22,0.06)] sm:rounded-[32px] sm:p-6">
                     <div className="flex items-center gap-4">
                       <Image
-                        src={selectedPro.image}
+                        src={
+                          selectedPro.image ||
+                          "https://via.placeholder.com/128x128?text=" +
+                            encodeURIComponent(selectedPro.name)
+                        }
                         alt={selectedPro.name}
                         width={128}
                         height={128}
                         className="h-16 w-16 rounded-[20px] object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src =
+                            "https://via.placeholder.com/128x128?text=" +
+                            encodeURIComponent(selectedPro.name);
+                        }}
                       />
                       <div>
                         <p className="text-sm font-medium text-[#f56969]">
@@ -1355,11 +1394,20 @@ function BookingPageContent() {
                 <div className="mb-6 flex items-center gap-4">
                   {selectedPro ? (
                     <Image
-                      src={selectedPro.image}
+                      src={
+                        selectedPro.image ||
+                        "https://via.placeholder.com/160x160?text=" +
+                          encodeURIComponent(selectedPro.name)
+                      }
                       alt={selectedPro.name}
                       width={160}
                       height={160}
                       className="h-20 w-20 rounded-[24px] object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                          "https://via.placeholder.com/160x160?text=" +
+                          encodeURIComponent(selectedPro.name);
+                      }}
                     />
                   ) : null}
                   <div>
