@@ -346,7 +346,7 @@ function BookingPageContent() {
     if (!matchedProfessional) return;
 
     setSelectedProfessional(String(matchedProfessional.id));
-    setStep(2);
+    setStep(3);
   }, [professionalOptions, requestedProfessional, selectedProfessional]);
 
   useEffect(() => {

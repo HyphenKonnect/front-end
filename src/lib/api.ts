@@ -136,6 +136,11 @@ export async function apiFetch(
 }
 
 export async function parseJsonResponse<T>(response: Response): Promise<T> {
+  const fallbackText = await response
+    .clone()
+    .text()
+    .catch(() => "");
+
   const data = (await response.json().catch(() => null)) as
     | T
     | { error?: string; message?: string }
@@ -147,6 +152,7 @@ export async function parseJsonResponse<T>(response: Response): Promise<T> {
         typeof data === "object" &&
         ("error" in data || "message" in data) &&
         (data.error || data.message)) ||
+      fallbackText ||
       "Something went wrong while talking to the server.";
     throw new Error(message);
   }
