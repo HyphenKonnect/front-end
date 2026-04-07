@@ -119,6 +119,7 @@ function BookingPageContent() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const today = useMemo(() => startOfDay(new Date()), []);
+  const bookingTopRef = useRef<HTMLDivElement | null>(null);
   const timeSlotsRef = useRef<HTMLDivElement | null>(null);
   const continueButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -442,6 +443,21 @@ function BookingPageContent() {
       void loadRazorpayScript();
     }
   }, [isAuthenticated, step]);
+
+  useEffect(() => {
+    const target = bookingTopRef.current;
+    if (!target) return;
+
+    const scrollToBookingTop = () => {
+      const top = target.getBoundingClientRect().top + window.scrollY - 132;
+      window.scrollTo({
+        top: Math.max(0, top),
+        behavior: "smooth",
+      });
+    };
+
+    requestAnimationFrame(scrollToBookingTop);
+  }, [step]);
 
   useEffect(() => {
     if (!requestedBookingId || !isAuthenticated) return;
@@ -788,6 +804,7 @@ function BookingPageContent() {
   // ============================================================
   return (
     <div className="min-h-screen bg-[#f7f5f4] pt-28">
+      <div ref={bookingTopRef} />
       {/* Step Indicator */}
       <div className="border-y border-gray-200 bg-white">
         <div className="mx-auto max-w-[1200px] px-6 py-8">
