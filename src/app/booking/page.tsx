@@ -1,37 +1,18 @@
 "use client";
 
-import {
-  Suspense,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { CheckCircle, LoaderCircle } from "lucide-react";
 import {
-  CheckCircle,
-  ChevronLeft,
-  ChevronRight,
-  LoaderCircle,
-} from "lucide-react";
-import {
-  mapBackendProfessionalToDirectory,
   professionals,
   serviceCatalog,
-  type BackendProfessionalRecord,
-  type DirectoryProfessional,
   type ProfessionalProfile,
 } from "../../components/site/data";
 import { StatusBanner } from "../../components/ui/StatusBanner";
 import { apiFetch, parseJsonResponse } from "../../lib/api";
 import { formatInr } from "../../lib/formatting";
-import {
-  openRazorpayCheckout,
-  type RazorpayOrderPayload,
-} from "../../lib/razorpay";
 import { useAuth } from "../../components/auth/AuthProvider";
 
 const MONTH_NAMES = [
@@ -60,53 +41,51 @@ const DAY_NAMES = [
   "Saturday",
 ] as const;
 
-type TimeRange = {
-  startMinutes: number;
-  endMinutes: number;
+type TimeSlot = { start: string; end: string };
+type WorkingHours = { start: string; end: string; slots?: TimeSlot[] };
+type Availability = {
+  timezone?: string;
+  workingHours?: Record<string, WorkingHours>;
+  blockedDates?: string[];
+  specialDates?: Array<{
+    date: string;
+    type: "special_hours" | "off_day" | "emergency_leave";
+    start?: string;
+    end?: string;
+  }>;
 };
 
-type AvailabilitySchedule = Record<number, TimeRange[]>;
-
-type LiveAvailabilityResponse = {
-  availability?: BackendProfessionalRecord["availability"];
-  bookedSlots?: { start: string; end: string }[];
-  professional?: BackendProfessionalRecord;
+type ProfessionalData = ProfessionalProfile & {
+  availability?: Availability;
+  backendId?: string;
 };
 
-type BookingDetailsResponse = {
-  _id: string;
-  serviceId?: string;
-  scheduledAt: string;
-  status: string;
-  professionalId?:
-    | string
-    | {
-        _id?: string;
-        id?: string;
-        name?: string;
-      };
+type BackendProfessionalRecord = {
+  _id?: string;
+  id?: string;
+  name?: string;
+  profile?: {
+    specialisation?: string;
+    serviceCategory?: ProfessionalProfile["category"];
+  };
+  availability?: Availability;
 };
 
-const localDirectory: DirectoryProfessional[] = professionals.map(
-  (professional) => ({
-    id: professional.id,
-    slug: professional.slug,
-    name: professional.name,
-    specialty: professional.specialty,
-    category: professional.category,
-    image: professional.image,
-    rating: professional.rating,
-    reviews: professional.reviews,
-    experience: professional.experience,
-    rate: professional.rate,
-    available: professional.available,
-    location: professional.location,
-    workingHours: professional.workingHours,
-    daysOff: professional.daysOff,
-    bookingMode: professional.bookingMode,
-    packageSessions: professional.packageSessions,
-  }),
-);
+type BookingCreationResponse = {
+  _id?: string;
+  bookingId?: string;
+  scheduledAt?: string;
+};
+
+const DAY_KEYS = [
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+] as const;
 
 export default function BookingPage() {
   return (
@@ -118,421 +97,353 @@ export default function BookingPage() {
 
 function BookingPageContent() {
   const searchParams = useSearchParams();
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const today = useMemo(() => startOfDay(new Date()), []);
   const timeSlotsRef = useRef<HTMLDivElement | null>(null);
-  const continueActionsRef = useRef<HTMLDivElement | null>(null);
   const continueButtonRef = useRef<HTMLButtonElement | null>(null);
+
   const initialService = searchParams.get("service") || "";
-  const initialProfessionalSlug = searchParams.get("professional") || "";
-  const bookingIdFromQuery = searchParams.get("bookingId") || "";
+
+  // State
   const [step, setStep] = useState(1);
   const [selectedService, setSelectedService] = useState(initialService);
   const [selectedProfessional, setSelectedProfessional] = useState<
-    string | number | null
+    string | null
   >(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("");
-  const [selectedSecondDate, setSelectedSecondDate] = useState<Date | null>(
-    null,
-  );
-  const [selectedSecondTime, setSelectedSecondTime] = useState("");
-  const [activePackageSlot, setActivePackageSlot] = useState<1 | 2>(1);
   const [visibleMonth, setVisibleMonth] = useState(
     () => new Date(today.getFullYear(), today.getMonth(), 1),
   );
-  const [directory, setDirectory] =
-    useState<DirectoryProfessional[]>(localDirectory);
-  const [usingLiveData, setUsingLiveData] = useState(false);
-  const [availabilityData, setAvailabilityData] =
-    useState<LiveAvailabilityResponse | null>(null);
-  const [loadingAvailability, setLoadingAvailability] = useState(false);
-  const [loadingRescheduleBooking, setLoadingRescheduleBooking] =
-    useState(false);
+
+  const [directoryProfessionals, setDirectoryProfessionals] = useState<
+    ProfessionalData[]
+  >([]);
+  const [loadingProfessionals, setLoadingProfessionals] = useState(false);
   const [bookingError, setBookingError] = useState("");
-  const [paymentOrder, setPaymentOrder] = useState<RazorpayOrderPayload | null>(
-    null,
-  );
-  const [paymentError, setPaymentError] = useState("");
-  const [creatingPaymentOrder, setCreatingPaymentOrder] = useState(false);
-  const [paymentSuccessMessage, setPaymentSuccessMessage] = useState("");
   const [bookingSuccess, setBookingSuccess] = useState<{
     bookingId: string;
     scheduledAt: string;
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [rescheduleBooking, setRescheduleBooking] =
-    useState<BookingDetailsResponse | null>(null);
-  const [requestForm, setRequestForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    message: "",
-  });
-  const [requestSuccessMessage, setRequestSuccessMessage] = useState("");
 
-  const isRescheduleMode = Boolean(bookingIdFromQuery);
+  console.log("🎯 Booking Page Loaded");
+  console.log("Selected Professional:", selectedProfessional);
+  console.log(
+    "Selected Professional Data:",
+    selectedProfessional
+      ? directoryProfessionals.find((p) => p.id === selectedProfessional)
+      : null,
+  );
 
+  // ============================================================
+  // FETCH PROFESSIONALS WITH AVAILABILITY
+  // ============================================================
   useEffect(() => {
-    const nextService = searchParams.get("service") || "";
-    const nextProfessionalSlug = searchParams.get("professional") || "";
-    if (!nextService) return;
-    if (!serviceCatalog.some((service) => service.slug === nextService)) return;
+    if (!selectedService) return;
 
-    setSelectedService(nextService);
-    setSelectedProfessional(null);
-    setSelectedDate(null);
-    setSelectedTime("");
-    setSelectedSecondDate(null);
-    setSelectedSecondTime("");
-    setBookingError("");
-    setBookingSuccess(null);
-    setPaymentOrder(null);
-    setPaymentError("");
-    setPaymentSuccessMessage("");
-    setRequestSuccessMessage("");
-    setStep(nextProfessionalSlug ? 3 : 2);
-    setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
-  }, [searchParams, today]);
-
-  useEffect(() => {
     let cancelled = false;
+    setLoadingProfessionals(true);
 
     const loadProfessionals = async () => {
       try {
-        const response = await apiFetch("/api/professionals");
-        const data =
-          await parseJsonResponse<BackendProfessionalRecord[]>(response);
-        if (!Array.isArray(data) || cancelled) return;
+        // Get local professionals first
+        const localProfs = professionals
+          .filter((prof) => {
+          if (selectedService === "mental-wellness")
+            return prof.category === "therapist";
+          if (selectedService === "medical-consultation")
+            return prof.category === "doctor";
+          if (selectedService === "legal-guidance")
+            return prof.category === "legal";
+          if (selectedService === "wellness-programs")
+            return prof.category === "wellness";
+          return false;
+          })
+          .map((prof) => ({
+            ...prof,
+            availability: createAvailabilityFromProfile(prof),
+          })) as ProfessionalData[];
 
-        setDirectory(data.map(mapBackendProfessionalToDirectory));
-        setUsingLiveData(true);
-      } catch {
-        // Keep local fallback data.
-      }
-    };
+        // Service to backend category mapping
+        const serviceMap: Record<string, string> = {
+          "mental-wellness": "therapist",
+          "medical-consultation": "doctor",
+          "legal-guidance": "legal",
+          "wellness-programs": "wellness",
+        };
 
-    void loadProfessionals();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!bookingIdFromQuery || authLoading || !isAuthenticated) return;
-
-    let cancelled = false;
-
-    const loadBooking = async () => {
-      try {
-        setLoadingRescheduleBooking(true);
-        const response = await apiFetch(`/api/bookings/${bookingIdFromQuery}`);
-        const data = await parseJsonResponse<BookingDetailsResponse>(response);
-        if (!cancelled) {
-          setRescheduleBooking(data);
+        const category = serviceMap[selectedService];
+        if (!category) {
+          if (!cancelled)
+            setDirectoryProfessionals(localProfs);
+          return;
         }
-      } catch (error) {
-        if (!cancelled) {
-          setBookingError(
-            error instanceof Error
-              ? error.message
-              : "We could not load the booking you want to reschedule.",
+
+        try {
+          // Fetch from backend
+          const response = await apiFetch(
+            `/api/professionals?category=${category}`,
           );
+          const backendData =
+            await parseJsonResponse<BackendProfessionalRecord[]>(response);
+
+          console.log("📊 Backend Data Received:", backendData);
+
+          if (
+            !cancelled &&
+            Array.isArray(backendData) &&
+            backendData.length > 0
+          ) {
+            // Map backend data with availability
+            const mappedProfs = backendData
+              .map((prof) => {
+                const localMatch = professionals.find(
+                  (p) => p.name.toLowerCase() === prof.name?.toLowerCase(),
+                );
+
+                const normalizedAvailability =
+                  normalizeAvailability(prof.availability) ||
+                  (localMatch
+                    ? createAvailabilityFromProfile(localMatch)
+                    : undefined);
+
+                console.log(`🔍 Professional: ${prof.name}`);
+                console.log(
+                  `   Availability:`,
+                  normalizedAvailability?.workingHours,
+                );
+
+                return {
+                  ...(localMatch || {
+                    id: prof._id || prof.id,
+                    slug: prof.name?.toLowerCase().replace(/\s+/g, "-"),
+                    name: prof.name || "Unknown",
+                    specialty: prof.profile?.specialisation || "Specialist",
+                    category: prof.profile?.serviceCategory || category,
+                    image: "/brand-logo.png",
+                    rating: 0,
+                    reviews: 0,
+                    experience: "Professional",
+                    rate: "Contact for pricing",
+                    available: true,
+                    intro: "Professional",
+                    about: [],
+                    qualifications: [],
+                    expertise: [],
+                    approach: "Professional approach",
+                    languages: ["English", "Hindi"],
+                  }),
+                  backendId: prof._id,
+                  availability: normalizedAvailability,
+                } as ProfessionalData;
+              })
+              .filter(Boolean);
+
+            setDirectoryProfessionals(mappedProfs);
+          } else {
+            setDirectoryProfessionals(localProfs);
+          }
+        } catch {
+          console.log("API error, using local professionals");
+          setDirectoryProfessionals(localProfs);
         }
       } finally {
-        if (!cancelled) {
-          setLoadingRescheduleBooking(false);
-        }
+        if (!cancelled) setLoadingProfessionals(false);
       }
     };
 
-    void loadBooking();
-
+    loadProfessionals();
     return () => {
       cancelled = true;
     };
-  }, [authLoading, bookingIdFromQuery, isAuthenticated]);
-
-  useEffect(() => {
-    if (!rescheduleBooking || !directory.length) return;
-
-    const professionalRecord =
-      typeof rescheduleBooking.professionalId === "object"
-        ? rescheduleBooking.professionalId
-        : null;
-    const professionalId =
-      professionalRecord?._id ||
-      professionalRecord?.id ||
-      rescheduleBooking.professionalId;
-    const matchedProfessional = directory.find(
-      (item) =>
-        item.backendId === professionalId ||
-        String(item.id) === String(professionalId) ||
-        item.name === professionalRecord?.name,
-    );
-    const scheduledDate = new Date(rescheduleBooking.scheduledAt);
-
-    if (rescheduleBooking.serviceId) {
-      setSelectedService(rescheduleBooking.serviceId);
-    }
-    if (matchedProfessional) {
-      setSelectedProfessional(matchedProfessional.id);
-    }
-    if (!Number.isNaN(scheduledDate.getTime())) {
-      setSelectedDate(scheduledDate);
-      setSelectedTime(
-        formatMinutes(
-          scheduledDate.getHours() * 60 + scheduledDate.getMinutes(),
-        ),
-      );
-      setVisibleMonth(
-        new Date(scheduledDate.getFullYear(), scheduledDate.getMonth(), 1),
-      );
-    }
-    setStep(3);
-  }, [directory, rescheduleBooking]);
+  }, [selectedService]);
 
   const professionalOptions = useMemo(() => {
-    return directory.filter((item) => {
-      if (!selectedService) return false;
-      if (selectedService === "mental-wellness")
-        return item.category === "therapist";
-      if (selectedService === "medical-consultation")
-        return item.category === "doctor";
-      if (selectedService === "legal-guidance")
-        return item.category === "legal";
-      return item.category === "wellness";
-    });
-  }, [directory, selectedService]);
+    return directoryProfessionals;
+  }, [directoryProfessionals]);
 
   const selectedPro = useMemo(
     () =>
-      professionalOptions.find((item) => item.id === selectedProfessional) ??
-      null,
+      professionalOptions.find((p) => p.id === selectedProfessional) ?? null,
     [professionalOptions, selectedProfessional],
   );
 
-  const fallbackProfile = useMemo(() => {
-    if (!selectedPro) return null;
-    return (
-      professionals.find(
-        (item) =>
-          item.slug === selectedPro.slug || item.name === selectedPro.name,
-      ) ?? null
-    );
-  }, [selectedPro]);
-
-  useEffect(() => {
-    if (
-      !initialProfessionalSlug ||
-      !professionalOptions.length ||
-      selectedProfessional
-    )
-      return;
-    const matchedProfessional = professionalOptions.find(
-      (item) => item.slug === initialProfessionalSlug,
-    );
-    if (!matchedProfessional) return;
-    setSelectedProfessional(matchedProfessional.id);
-    setBookingError("");
-    setBookingSuccess(null);
-    setPaymentOrder(null);
-    setPaymentError("");
-    setPaymentSuccessMessage("");
-    setRequestSuccessMessage("");
-    setStep(3);
-  }, [initialProfessionalSlug, professionalOptions, selectedProfessional]);
-
-  useEffect(() => {
-    setRequestForm({
-      name: user?.name || "",
-      email: user?.email || "",
-      phone: user?.phone || "",
-      message:
-        fallbackProfile?.category === "legal"
-          ? "I would like support with a legal consultation."
-          : "",
-    });
-  }, [fallbackProfile?.category, user?.email, user?.name, user?.phone]);
-
-  const bookingMode =
-    fallbackProfile?.bookingMode || selectedPro?.bookingMode || "standard";
-  const isRequestOnly = bookingMode === "request";
-  const isPackageBooking = bookingMode === "package";
-  const calendarTargetDate =
-    isPackageBooking && activePackageSlot === 2
-      ? selectedSecondDate
-      : selectedDate;
-  const calendarTargetTime =
-    isPackageBooking && activePackageSlot === 2
-      ? selectedSecondTime
-      : selectedTime;
-
-  const fallbackSchedule = useMemo(
-    () =>
-      fallbackProfile
-        ? buildFallbackAvailabilitySchedule(fallbackProfile)
-        : null,
-    [fallbackProfile],
-  );
+  console.log("Selected Professional Object:", selectedPro);
+  console.log("Availability Data:", selectedPro?.availability);
 
   const calendarDays = useMemo(
     () => buildCalendarDays(visibleMonth),
     [visibleMonth],
   );
 
-  const availableSlots = useMemo(() => {
-    if (!calendarTargetDate || !selectedPro) return [];
-
-    if (selectedPro.backendId && availabilityData?.availability) {
-      return getLiveSlotsForDate(calendarTargetDate, availabilityData);
+  // ============================================================
+  // CHECK IF DATE IS WORKING DAY - THIS IS THE KEY FUNCTION
+  // ============================================================
+  const isDateWorkingDay = (date: Date): boolean => {
+    // Can't book in the past
+    if (date < today) {
+      console.log(`❌ ${formatLongDate(date)}: In the past`);
+      return false;
     }
 
-    if (fallbackProfile && fallbackSchedule) {
-      return getFallbackSlotsForDate(
-        calendarTargetDate,
-        fallbackProfile,
-        fallbackSchedule,
-      );
+    // If no professional selected, can't determine
+    if (!selectedPro) {
+      console.log(`❌ ${formatLongDate(date)}: No professional selected`);
+      return false;
     }
 
-    return [];
-  }, [
-    availabilityData,
-    calendarTargetDate,
-    fallbackProfile,
-    fallbackSchedule,
-    selectedPro,
-  ]);
-
-  const canMoveToStepFour = isRequestOnly
-    ? Boolean(requestForm.name && requestForm.email && requestForm.message)
-    : isPackageBooking
-      ? Boolean(
-          selectedDate &&
-          selectedTime &&
-          selectedSecondDate &&
-          selectedSecondTime,
-        )
-      : Boolean(selectedDate && selectedTime);
-
-  const scrollToTimeSlots = () => {
-    window.requestAnimationFrame(() => {
-      timeSlotsRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    });
-  };
-
-  const scrollToContinueActions = () => {
-    window.setTimeout(() => {
-      continueButtonRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-    }, 120);
-  };
-
-  useEffect(() => {
-    if (!selectedPro?.backendId) {
-      setAvailabilityData(null);
-      return;
+    // If no availability data, allow all days
+    if (!selectedPro.availability?.workingHours) {
+      console.log(`⚠️ ${formatLongDate(date)}: No availability data, allowing`);
+      return true;
     }
 
-    let cancelled = false;
-    setLoadingAvailability(true);
+    const availability = selectedPro.availability;
+    const dayName = DAY_NAMES[date.getDay()].toLowerCase();
 
-    const monthStart = new Date(
-      visibleMonth.getFullYear(),
-      visibleMonth.getMonth(),
-      1,
+    console.log(
+      `📅 Checking ${formatLongDate(date)} (${DAY_NAMES[date.getDay()]})`,
     );
-    const monthEnd = new Date(
-      visibleMonth.getFullYear(),
-      visibleMonth.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
+    console.log(`   Day name to check: "${dayName}"`);
+    console.log(
+      `   Available days:`,
+      Object.keys(availability.workingHours || {}),
     );
 
-    const loadAvailability = async () => {
-      try {
-        const response = await apiFetch(
-          `/api/professionals/${selectedPro.backendId}/availability?startDate=${encodeURIComponent(
-            monthStart.toISOString(),
-          )}&endDate=${encodeURIComponent(monthEnd.toISOString())}`,
-        );
+    const workingHours = availability.workingHours?.[dayName];
 
-        const data =
-          await parseJsonResponse<LiveAvailabilityResponse>(response);
-        if (cancelled) return;
-        setAvailabilityData(data);
-      } catch {
-        if (!cancelled) {
-          setAvailabilityData(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingAvailability(false);
-        }
+    // If no working hours for this day, it's not a working day
+    if (!workingHours) {
+      console.log(`❌ No working hours for ${dayName}`);
+      return false;
+    }
+
+    console.log(`✅ ${dayName} has working hours:`, workingHours);
+
+    // Check blocked dates
+    if (availability.blockedDates) {
+      const dateStr = date.toISOString().split("T")[0];
+      if (availability.blockedDates.includes(dateStr)) {
+        console.log(`❌ Date is blocked: ${dateStr}`);
+        return false;
       }
-    };
-
-    void loadAvailability();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedPro?.backendId, visibleMonth]);
-
-  const refreshAvailability = async () => {
-    if (!selectedPro?.backendId) return;
-
-    const monthStart = new Date(
-      visibleMonth.getFullYear(),
-      visibleMonth.getMonth(),
-      1,
-    );
-    const monthEnd = new Date(
-      visibleMonth.getFullYear(),
-      visibleMonth.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
-    );
-
-    try {
-      setLoadingAvailability(true);
-      const response = await apiFetch(
-        `/api/professionals/${selectedPro.backendId}/availability?startDate=${encodeURIComponent(
-          monthStart.toISOString(),
-        )}&endDate=${encodeURIComponent(monthEnd.toISOString())}`,
-      );
-      const data = await parseJsonResponse<LiveAvailabilityResponse>(response);
-      setAvailabilityData(data);
-    } catch {
-      setAvailabilityData(null);
-    } finally {
-      setLoadingAvailability(false);
     }
+
+    // Check special dates (off days)
+    if (availability.specialDates) {
+      const dateStr = date.toISOString().split("T")[0];
+      const specialDate = availability.specialDates.find(
+        (sd) => sd.date === dateStr,
+      );
+      if (
+        specialDate?.type === "off_day" ||
+        specialDate?.type === "emergency_leave"
+      ) {
+        console.log(`❌ Special off day: ${dateStr}`);
+        return false;
+      }
+    }
+
+    console.log(`✅ ${formatLongDate(date)} is a working day!`);
+    return true;
   };
 
+  // ============================================================
+  // GET TIME SLOTS FOR SELECTED DATE
+  // ============================================================
+  const availableSlots = useMemo(() => {
+    if (!selectedDate || !selectedPro?.availability) {
+      console.log("No date or availability selected");
+      return [];
+    }
+
+    const availability = selectedPro.availability;
+    const dayName = DAY_NAMES[selectedDate.getDay()].toLowerCase();
+    const workingHours = availability.workingHours?.[dayName];
+
+    console.log(`🕐 Getting slots for ${DAY_NAMES[selectedDate.getDay()]}:`);
+    console.log(`   Working hours:`, workingHours);
+
+    if (!workingHours) {
+      console.log("No working hours found");
+      return [];
+    }
+
+    const slots: string[] = [];
+    const now = new Date();
+    const isToday = isSameDay(selectedDate, now);
+
+    // Use predefined slots if available
+    if (workingHours.slots && workingHours.slots.length > 0) {
+      console.log("Using predefined slots:", workingHours.slots);
+
+      workingHours.slots.forEach((slot) => {
+        const [startHour, startMin] = slot.start.split(":").map(Number);
+        const [endHour, endMin] = slot.end.split(":").map(Number);
+
+        let currentHour = startHour;
+        let currentMin = startMin;
+
+        while (
+          currentHour < endHour ||
+          (currentHour === endHour && currentMin < endMin)
+        ) {
+          const slotTime = formatTime(currentHour, currentMin);
+          const slotDate = new Date(selectedDate);
+          slotDate.setHours(currentHour, currentMin, 0, 0);
+
+          if (isToday && slotDate <= now) {
+            currentMin += 60;
+            if (currentMin >= 60) {
+              currentMin -= 60;
+              currentHour += 1;
+            }
+            continue;
+          }
+
+          slots.push(slotTime);
+          console.log(`   ✅ Added slot: ${slotTime}`);
+
+          currentMin += 60;
+          if (currentMin >= 60) {
+            currentMin -= 60;
+            currentHour += 1;
+          }
+        }
+      });
+    } else {
+      // Fallback: hourly slots
+      const [startHour] = workingHours.start.split(":").map(Number);
+      const [endHour] = workingHours.end.split(":").map(Number);
+
+      console.log(
+        `Generating hourly slots from ${workingHours.start} to ${workingHours.end}`,
+      );
+
+      for (let hour = startHour; hour < endHour; hour++) {
+        const slotTime = formatTime(hour, 0);
+        const slotDate = new Date(selectedDate);
+        slotDate.setHours(hour, 0, 0, 0);
+
+        if (isToday && slotDate <= now) continue;
+        slots.push(slotTime);
+        console.log(`   ✅ Added slot: ${slotTime}`);
+      }
+    }
+
+    console.log(`Total slots: ${slots.length}`);
+    return slots;
+  }, [selectedDate, selectedPro?.availability]);
+
+  // ============================================================
+  // HANDLERS
+  // ============================================================
   const handleConfirmBooking = async () => {
     if (!selectedPro || !selectedDate || !selectedTime) return;
 
     if (!isAuthenticated) {
-      setBookingError("Please log in as a client before confirming a booking.");
-      return;
-    }
-
-    if (!selectedPro.backendId) {
-      setBookingError(
-        "This professional is not connected to the backend yet. Please choose a live backend profile.",
-      );
+      setBookingError("Please log in before confirming.");
       return;
     }
 
@@ -540,46 +451,43 @@ function BookingPageContent() {
       setSubmitting(true);
       setBookingError("");
       setBookingSuccess(null);
-      setPaymentOrder(null);
-      setPaymentError("");
-      setPaymentSuccessMessage("");
 
       const scheduledAt = combineDateAndTime(selectedDate, selectedTime);
-      const response = await apiFetch(
-        isRescheduleMode && bookingIdFromQuery
-          ? `/api/bookings/${bookingIdFromQuery}/reschedule`
-          : "/api/bookings",
-        {
-          method: isRescheduleMode && bookingIdFromQuery ? "PATCH" : "POST",
-          body: JSON.stringify({
-            professionalId: selectedPro.backendId,
-            serviceId: selectedService,
-            scheduledAt: scheduledAt.toISOString(),
-          }),
-        },
-      );
-
-      const data = await parseJsonResponse<{
-        bookingId?: string;
-        message?: string;
-        booking?: { _id?: string; scheduledAt?: string };
-        _id?: string;
-      }>(response);
-
-      setBookingSuccess({
-        bookingId: data.bookingId || data.booking?._id || bookingIdFromQuery,
-        scheduledAt: data.booking?.scheduledAt || scheduledAt.toISOString(),
+      const response = await apiFetch("/api/bookings", {
+        method: "POST",
+        body: JSON.stringify({
+          professionalId: selectedPro.backendId || selectedPro.id,
+          serviceId: selectedService,
+          scheduledAt: scheduledAt.toISOString(),
+        }),
       });
-      await refreshAvailability();
+
+      const data = await parseJsonResponse<BookingCreationResponse>(response);
+      setBookingSuccess({
+        bookingId: data.bookingId || data._id,
+        scheduledAt: data.scheduledAt || scheduledAt.toISOString(),
+      });
     } catch (error) {
       setBookingError(
-        error instanceof Error
-          ? error.message
-          : "We could not create the booking right now.",
+        error instanceof Error ? error.message : "Could not create booking.",
       );
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const scrollToTimeSlots = () => {
+    timeSlotsRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
+  const scrollToContinueButton = () => {
+    continueButtonRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
   };
 
   const pricingBreakdown = useMemo(() => {
@@ -588,165 +496,15 @@ function BookingPageContent() {
     const basePrice = numericMatch ? Number(numericMatch[1]) : 0;
     const gstAmount = Number((basePrice * 0.18).toFixed(2));
     const total = Number((basePrice + gstAmount).toFixed(2));
-
-    return {
-      basePrice,
-      gstAmount,
-      total,
-    };
+    return { basePrice, gstAmount, total };
   }, [selectedPro?.rate]);
 
-  const handleCreatePaymentOrder = async () => {
-    if (!bookingSuccess?.bookingId) return;
-
-    try {
-      setCreatingPaymentOrder(true);
-      setPaymentError("");
-      setPaymentSuccessMessage("");
-      const response = await apiFetch("/api/payments/create-order", {
-        method: "POST",
-        body: JSON.stringify({ bookingId: bookingSuccess.bookingId }),
-      });
-      const data = await parseJsonResponse<{
-        bookingId: string | null;
-        orderId: string;
-        amount: number;
-        currency: string;
-        key: string;
-      }>(response);
-      const nextOrder = {
-        bookingId: data.bookingId || bookingSuccess.bookingId,
-        orderId: data.orderId,
-        amount: data.amount,
-        currency: data.currency,
-        key: data.key,
-      };
-      setPaymentOrder(nextOrder);
-      return nextOrder;
-    } catch (error) {
-      setPaymentError(
-        error instanceof Error
-          ? error.message
-          : "We could not initialize payment right now.",
-      );
-      return null;
-    } finally {
-      setCreatingPaymentOrder(false);
-    }
-  };
-
-  const handleStartPayment = async () => {
-    if (!bookingSuccess?.bookingId || !selectedPro) return;
-
-    const order = paymentOrder || (await handleCreatePaymentOrder());
-    if (!order) return;
-
-    try {
-      setPaymentError("");
-      setPaymentSuccessMessage("");
-
-      await openRazorpayCheckout({
-        order,
-        name: "The Hyphen Konnect",
-        description: `${selectedPro.name} session`,
-        prefill: {
-          name: user?.name,
-          email: user?.email,
-          contact: user?.phone,
-        },
-        onSuccess: async (response) => {
-          const verifyResponse = await apiFetch("/api/payments/verify", {
-            method: "POST",
-            body: JSON.stringify({
-              bookingId: order.bookingId,
-              orderId: response.razorpay_order_id,
-              paymentId: response.razorpay_payment_id,
-              signature: response.razorpay_signature,
-            }),
-          });
-          const verification = await parseJsonResponse<{
-            success: boolean;
-            message: string;
-            paymentId: string;
-            method?: string;
-            invoiceNumber?: string;
-          }>(verifyResponse);
-
-          const confirmResponse = await apiFetch(
-            `/api/bookings/${order.bookingId}/confirm`,
-            {
-              method: "PATCH",
-              body: JSON.stringify({
-                paymentId: response.razorpay_payment_id,
-                paymentMethod: verification.method || "upi",
-                orderId: response.razorpay_order_id,
-                signature: response.razorpay_signature,
-              }),
-            },
-          );
-          await parseJsonResponse(confirmResponse);
-
-          setPaymentSuccessMessage(
-            verification.invoiceNumber
-              ? `Payment completed and booking confirmed. Invoice ${verification.invoiceNumber} is now available in your dashboard.`
-              : "Payment completed and booking confirmed. Your updated receipt is now available in the client dashboard.",
-          );
-          await refreshAvailability();
-        },
-        onFailure: (message) => {
-          setPaymentError(message);
-        },
-        onDismiss: () => {
-          setPaymentError("Payment window closed before completion.");
-        },
-      });
-    } catch (error) {
-      setPaymentError(
-        error instanceof Error
-          ? error.message
-          : "We could not start Razorpay checkout.",
-      );
-    }
-  };
-
-  const handleContinueLegalRequest = () => {
-    if (!selectedPro) return;
-
-    const params = new URLSearchParams({
-      service:
-        serviceCatalog.find((service) => service.slug === selectedService)
-          ?.title || selectedService,
-      professional: selectedPro.name,
-      mode: isPackageBooking ? "package-request" : "request",
-    });
-
-    if (requestForm.name) params.set("name", requestForm.name);
-    if (requestForm.email) params.set("email", requestForm.email);
-    if (requestForm.phone) params.set("phone", requestForm.phone);
-    if (requestForm.message) params.set("message", requestForm.message);
-    if (selectedDate && selectedTime) {
-      params.set(
-        "slotOne",
-        `${formatLongDate(selectedDate)} at ${selectedTime}`,
-      );
-    }
-    if (selectedSecondDate && selectedSecondTime) {
-      params.set(
-        "slotTwo",
-        `${formatLongDate(selectedSecondDate)} at ${selectedSecondTime}`,
-      );
-    }
-
-    setRequestSuccessMessage(
-      isPackageBooking
-        ? "Your preferred legal package slots are ready to send to our support team."
-        : "Your legal session request is ready to send to our support team.",
-    );
-    window.location.href = `/contact?${params.toString()}`;
-  };
-
+  // ============================================================
+  // RENDER
+  // ============================================================
   return (
     <div className="min-h-screen bg-[#f7f5f4] pt-28">
+      {/* Step Indicator */}
       <div className="border-y border-gray-200 bg-white">
         <div className="mx-auto max-w-[1200px] px-6 py-8">
           <div className="mb-4 flex items-center justify-between">
@@ -782,38 +540,29 @@ function BookingPageContent() {
         </div>
       </div>
 
+      {/* Main Content */}
       <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6 sm:py-12">
+        {/* Step 1: Select Service */}
         {step === 1 ? (
           <>
             <h2 className="mb-3 text-[36px] font-bold text-[#2b2b2b]">
               Select Your Service
             </h2>
             <p className="mb-8 text-[16px] text-[#7e7e7e]">
-              Choose the type of support you need.
+              Choose what you need.
             </p>
             <div className="grid gap-6 md:grid-cols-2">
               {serviceCatalog.map((service) => (
                 <button
                   key={service.slug}
-                  type="button"
                   onClick={() => {
                     setSelectedService(service.slug);
                     setSelectedProfessional(null);
                     setSelectedDate(null);
                     setSelectedTime("");
-                    setSelectedSecondDate(null);
-                    setSelectedSecondTime("");
-                    setActivePackageSlot(1);
                     setBookingError("");
                     setBookingSuccess(null);
-                    setPaymentOrder(null);
-                    setPaymentError("");
-                    setPaymentSuccessMessage("");
-                    setRequestSuccessMessage("");
-                    setVisibleMonth(
-                      new Date(today.getFullYear(), today.getMonth(), 1),
-                    );
-                    scrollToContinueActions();
+                    requestAnimationFrame(scrollToContinueButton);
                   }}
                   className={`rounded-[24px] bg-white p-8 text-left transition-all ${
                     selectedService === service.slug
@@ -854,113 +603,99 @@ function BookingPageContent() {
             </div>
           </>
         ) : null}
+
+        {/* Step 2: Choose Professional */}
         {step === 2 ? (
           <>
             <h2 className="mb-3 text-[36px] font-bold text-[#2b2b2b]">
-              Choose Your Professional
+              Choose Professional
             </h2>
             <p className="mb-3 text-[16px] text-[#7e7e7e]">
-              Select a professional who fits your needs.
+              Select a professional.
             </p>
-            <p className="mb-8 text-sm text-[#7e7e7e]">
-              {usingLiveData
-                ? "Using live professionals from the backend."
-                : "Using local fallback professionals while the backend data loads."}
-            </p>
-            <div className="grid gap-6 md:grid-cols-3">
-              {professionalOptions.map((pro) => (
-                <button
-                  key={pro.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedProfessional(pro.id);
-                    setSelectedDate(null);
-                    setSelectedTime("");
-                    setSelectedSecondDate(null);
-                    setSelectedSecondTime("");
-                    setActivePackageSlot(1);
-                    setBookingError("");
-                    setBookingSuccess(null);
-                    setRequestSuccessMessage("");
-                    setVisibleMonth(
-                      new Date(today.getFullYear(), today.getMonth(), 1),
-                    );
-                  }}
-                  className={`overflow-hidden rounded-[24px] bg-white text-left transition-all ${
-                    selectedProfessional === pro.id
-                      ? "border-2 border-[#f56969] shadow-lg"
-                      : "border border-[#e9e2df] shadow-[0_14px_36px_rgba(29,25,22,0.06)]"
-                  }`}
-                >
-                  <div className="bg-[#f4efeb] p-3">
-                    <Image
-                      src={pro.image}
-                      alt={pro.name}
-                      width={900}
-                      height={600}
-                      className="h-[220px] w-full rounded-[18px] object-cover object-[center_20%]"
-                    />
-                  </div>
-                  <div className="p-6 pt-5">
-                    <div className="mb-3 flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="text-[22px] font-bold text-[#2b2b2b]">
-                          {pro.name}
-                        </h3>
-                        <p className="mt-2 text-[14px] font-medium text-[#f56969]">
-                          {pro.specialty}
-                        </p>
-                      </div>
-                      <span className="rounded-full border border-[#ffd5cf] px-3 py-1 text-[12px] font-medium text-[#f56969]">
-                        {pro.bookingMode === "request"
-                          ? "On request"
-                          : pro.bookingMode === "package"
-                            ? "2-session package"
-                            : "Online"}
-                      </span>
-                    </div>
-                    <div className="grid gap-2 text-[14px] text-[#6f6f6f]">
-                      <div className="flex items-center justify-between gap-3">
-                        <span>{pro.experience} of experience</span>
-                        <span className="font-semibold text-[#2b2b2b]">
-                          {pro.rate}
-                        </span>
-                      </div>
-                      {pro.location ? (
-                        <div className="flex items-center justify-between gap-3">
-                          <span>{pro.location}</span>
-                          <span className="text-[#7e7e7e]">
-                            Verified profile
+            {loadingProfessionals ? (
+              <div className="flex items-center justify-center gap-3 py-12">
+                <LoaderCircle className="h-5 w-5 animate-spin text-[#f56969]" />
+                <span className="text-sm text-[#7e7e7e]">
+                  Loading professionals...
+                </span>
+              </div>
+            ) : professionalOptions.length === 0 ? (
+              <div className="rounded-[24px] border-2 border-dashed border-[#ecd8d5] bg-[#fcf9f8] px-6 py-12 text-center text-[#7e7e7e]">
+                No professionals available.
+              </div>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-3">
+                {professionalOptions.map((pro) => (
+                  <button
+                    key={pro.id}
+                    onClick={() => {
+                      console.log("Selected professional:", pro.name);
+                      console.log(
+                        "Professional availability:",
+                        pro.availability,
+                      );
+                      setSelectedProfessional(pro.id);
+                      setSelectedDate(null);
+                      setSelectedTime("");
+                      requestAnimationFrame(scrollToContinueButton);
+                    }}
+                    className={`overflow-hidden rounded-[24px] bg-white text-left transition-all ${
+                      selectedProfessional === pro.id
+                        ? "border-2 border-[#f56969] shadow-lg"
+                        : "border border-[#e9e2df]"
+                    }`}
+                  >
+                    <div className="bg-[#f4efeb] p-3">
+                      {pro.image && !pro.image.includes("brand-logo") ? (
+                        <Image
+                          src={pro.image}
+                          alt={pro.name}
+                          width={900}
+                          height={600}
+                          className="h-[220px] w-full rounded-[18px] object-cover"
+                        />
+                      ) : (
+                        <div className="h-[220px] w-full rounded-[18px] bg-gradient-to-br from-[#f5912d] via-[#f56969] to-[#e6b9e6] flex items-center justify-center">
+                          <span className="text-[80px] font-bold text-white opacity-80">
+                            {pro.name
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")}
                           </span>
                         </div>
-                      ) : null}
+                      )}
                     </div>
-                  </div>
-                </button>
-              ))}
-            </div>
+                    <div className="p-6 pt-5">
+                      <h3 className="text-[22px] font-bold text-[#2b2b2b]">
+                        {pro.name}
+                      </h3>
+                      <p className="mt-2 text-[14px] font-medium text-[#f56969]">
+                        {pro.specialty}
+                      </p>
+                      <p className="mt-2 text-[14px] text-[#7e7e7e]">
+                        {pro.experience}
+                      </p>
+                      <p className="mt-1 font-semibold text-[#2b2b2b]">
+                        {pro.rate}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </>
         ) : null}
+
+        {/* Step 3: Pick Date & Time */}
         {step === 3 ? (
           <>
-            <h2 className="mb-3 text-[36px] font-bold text-[#2b2b2b]">
-              {isRequestOnly
-                ? "Request Your Legal Session"
-                : isPackageBooking
-                  ? "Pick Your Two Legal Sessions"
-                  : isRescheduleMode
-                    ? "Reschedule Date &amp; Time"
-                    : "Pick Date &amp; Time"}
+            <h2 className="mb-8 text-[36px] font-bold text-[#2b2b2b]">
+              Pick Date & Time
             </h2>
-            <p className="mb-8 text-[16px] text-[#7e7e7e]">
-              {isRequestOnly
-                ? "This lawyer is available on request. Share your details and our team will coordinate the session."
-                : isPackageBooking
-                  ? "Choose two preferred legal session slots based on the professional’s availability."
-                  : "Choose a time that works for you."}
-            </p>
             <div className="grid gap-6 xl:grid-cols-[1.1fr_0.95fr] xl:gap-8">
-              <div className="rounded-[28px] bg-white p-4 shadow-[0_18px_45px_rgba(29,25,22,0.06)] sm:rounded-[32px] sm:p-8">
+              {/* Calendar */}
+              <div className="rounded-[28px] bg-white p-4 shadow-sm sm:rounded-[32px] sm:p-8">
                 <div className="mb-5 flex flex-wrap items-center gap-3 sm:mb-6">
                   <MonthSelect
                     value={visibleMonth.getMonth()}
@@ -977,52 +712,16 @@ function BookingPageContent() {
                         new Date(year, visibleMonth.getMonth(), 1),
                       )
                     }
-                    options={buildYearOptions(today.getFullYear())}
+                    options={Array.from({ length: 3 }, (_, i) => ({
+                      label: String(today.getFullYear() + i),
+                      value: today.getFullYear() + i,
+                    }))}
                   />
-                  <div className="ml-auto flex overflow-hidden rounded-[14px] border border-[#ffd3d1]">
-                    <CalendarNavButton
-                      disabled={
-                        visibleMonth.getFullYear() === today.getFullYear() &&
-                        visibleMonth.getMonth() === today.getMonth()
-                      }
-                      onClick={() =>
-                        setVisibleMonth(
-                          new Date(
-                            visibleMonth.getFullYear(),
-                            visibleMonth.getMonth() - 1,
-                            1,
-                          ),
-                        )
-                      }
-                    >
-                      <ChevronLeft className="h-5 w-5" />
-                    </CalendarNavButton>
-                    <div className="w-px bg-[#ffd3d1]" />
-                    <CalendarNavButton
-                      onClick={() =>
-                        setVisibleMonth(
-                          new Date(
-                            visibleMonth.getFullYear(),
-                            visibleMonth.getMonth() + 1,
-                            1,
-                          ),
-                        )
-                      }
-                    >
-                      <ChevronRight className="h-5 w-5" />
-                    </CalendarNavButton>
-                  </div>
                 </div>
 
-                <div className="mb-5 inline-flex rounded-full bg-[#fff1f0] px-4 py-1 text-sm font-medium text-[#6a6a6a] sm:mb-6">
-                  {selectedPro?.backendAvailability?.timezone ||
-                    availabilityData?.availability?.timezone ||
-                    "Asia/Calcutta"}
-                </div>
-
-                <div className="grid grid-cols-7 gap-2 text-center text-[13px] font-medium text-[#344256] sm:gap-3 sm:text-[15px]">
+                <div className="grid grid-cols-7 gap-2 text-center text-sm font-medium sm:gap-3">
                   {WEEKDAY_LABELS.map((label) => (
-                    <div key={label} className="py-2">
+                    <div key={label} className="py-2 text-[#344256]">
                       {label}
                     </div>
                   ))}
@@ -1030,276 +729,119 @@ function BookingPageContent() {
 
                 <div className="mt-3 grid grid-cols-7 gap-2 sm:gap-3">
                   {calendarDays.map((day) => {
-                    const inCurrentMonth = isSameMonth(day, visibleMonth);
-                    const selectable = isDateSelectable(
-                      day,
-                      today,
-                      selectedPro,
-                      availabilityData,
-                      fallbackProfile,
-                      fallbackSchedule,
-                    );
-                    const selected = calendarTargetDate
-                      ? isSameDay(day, calendarTargetDate)
+                    const inMonth = isSameMonth(day, visibleMonth);
+                    const isSelectable = isDateWorkingDay(day);
+                    const isSelected = selectedDate
+                      ? isSameDay(day, selectedDate)
                       : false;
 
                     return (
                       <button
                         key={day.toISOString()}
-                        type="button"
-                        disabled={!selectable}
+                        disabled={!isSelectable}
                         onClick={() => {
-                          if (isPackageBooking && activePackageSlot === 2) {
-                            setSelectedSecondDate(day);
-                            setSelectedSecondTime("");
-                          } else {
-                            setSelectedDate(day);
-                            setSelectedTime("");
-                          }
-                          setBookingError("");
-                          setBookingSuccess(null);
-                          setRequestSuccessMessage("");
-                          scrollToTimeSlots();
+                          setSelectedDate(day);
+                          setSelectedTime("");
+                          requestAnimationFrame(scrollToTimeSlots);
                         }}
-                        className={`relative min-h-[52px] rounded-[14px] border text-[24px] font-medium transition sm:min-h-[72px] sm:rounded-[12px] sm:text-[28px] ${
-                          selected
+                        className={`relative rounded-[14px] border text-[22px] font-medium transition h-[52px] sm:h-[72px] ${
+                          isSelected
                             ? "border-[#f56a6a] bg-[#f56a6a] text-white"
-                            : selectable
-                              ? "border-[#ff9d96] bg-[#fff8f8] text-[#243447] hover:bg-[#fff0ef]"
-                              : "border-transparent bg-[#eceef4] text-[#c2c8d2]"
-                        } ${!inCurrentMonth ? "opacity-70" : ""}`}
+                            : isSelectable
+                              ? "border-[#ff9d96] bg-[#fff8f8] text-[#243447] hover:bg-[#fff0ef] cursor-pointer"
+                              : "border-transparent bg-[#e8e8e8] text-[#a0a0a0] cursor-not-allowed"
+                        } ${!inMonth ? "opacity-40" : ""}`}
                       >
-                        <span className="text-[17px] sm:text-[18px]">
-                          {day.getDate()}
-                        </span>
-                        {selected ? (
-                          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-white/80" />
-                        ) : null}
+                        {day.getDate()}
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              <div className="space-y-5 sm:space-y-6">
-                {selectedPro ? (
-                  <div className="rounded-[28px] bg-white p-5 shadow-[0_18px_45px_rgba(29,25,22,0.06)] sm:rounded-[32px] sm:p-6">
-                    <div className="flex items-center gap-4">
-                      <Image
-                        src={selectedPro.image}
-                        alt={selectedPro.name}
-                        width={128}
-                        height={128}
-                        className="h-16 w-16 rounded-[20px] object-cover"
-                      />
-                      <div>
-                        <p className="text-sm font-medium text-[#f56969]">
-                          {selectedPro.specialty}
-                        </p>
-                        <h3 className="text-xl font-bold text-[#2b2b2b]">
-                          {selectedPro.name}
-                        </h3>
-                        <p className="text-sm text-[#7e7e7e]">
-                          {selectedPro.experience} · {selectedPro.rate}
-                        </p>
-                      </div>
-                    </div>
+              {/* Time Slots */}
+              <div
+                ref={timeSlotsRef}
+                className="rounded-[28px] bg-white p-5 shadow-sm sm:rounded-[32px] sm:p-8"
+              >
+                <h3 className="text-[22px] font-bold text-[#2b2b2b] sm:text-[28px]">
+                  Available Time Slots
+                </h3>
+                <p className="mt-2 text-sm text-[#7e7e7e]">
+                  {selectedDate
+                    ? formatLongDate(selectedDate)
+                    : "Select a working day."}
+                </p>
+
+                {selectedDate && availableSlots.length > 0 ? (
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2 sm:gap-4">
+                    {availableSlots.map((slot) => (
+                      <button
+                        key={slot}
+                        onClick={() => {
+                          setSelectedTime(slot);
+                          requestAnimationFrame(scrollToContinueButton);
+                        }}
+                        className={`rounded-[18px] border px-4 py-3 text-center font-medium transition ${
+                          selectedTime === slot
+                            ? "border-[#f56a6a] bg-[#f56a6a] text-white"
+                            : "border-transparent bg-[#f4f0ee] text-[#1f2d3d] hover:bg-[#ffe9e7] cursor-pointer"
+                        }`}
+                      >
+                        {slot}
+                      </button>
+                    ))}
                   </div>
-                ) : null}
-
-                <div
-                  ref={timeSlotsRef}
-                  className="rounded-[28px] bg-white p-5 shadow-[0_18px_45px_rgba(29,25,22,0.06)] sm:rounded-[32px] sm:p-8"
-                >
-                  <div className="mb-4 flex items-center justify-between gap-4">
-                    <div>
-                      <h3 className="text-[22px] font-bold text-[#2b2b2b] sm:text-[28px]">
-                        Available Time Slots
-                      </h3>
-                      <p className="text-sm leading-6 text-[#7e7e7e]">
-                        {isRequestOnly
-                          ? "Tell us what you need and we’ll route it to the legal team."
-                          : calendarTargetDate
-                            ? formatLongDate(calendarTargetDate)
-                            : "Select a date to see available session times."}
-                      </p>
-                    </div>
-                    {loadingAvailability ? (
-                      <span className="inline-flex items-center gap-2 rounded-full bg-[#fff3f2] px-4 py-2 text-sm font-medium text-[#f56969]">
-                        <LoaderCircle className="h-4 w-4 animate-spin" />
-                        Loading
-                      </span>
-                    ) : null}
+                ) : selectedDate ? (
+                  <div className="mt-6 rounded-[24px] border border-dashed border-[#ecd8d5] bg-[#fcf9f8] px-6 py-8 text-center text-[#7e7e7e]">
+                    No available slots for this day.
                   </div>
-
-                  {isPackageBooking ? (
-                    <div className="mb-6 flex flex-wrap gap-3">
-                      {[1, 2].map((slotIndex) => {
-                        const slotNumber = slotIndex as 1 | 2;
-                        const slotDate =
-                          slotNumber === 1 ? selectedDate : selectedSecondDate;
-                        const slotTime =
-                          slotNumber === 1 ? selectedTime : selectedSecondTime;
-
-                        return (
-                          <button
-                            key={slotIndex}
-                            type="button"
-                            onClick={() => setActivePackageSlot(slotNumber)}
-                            className={`min-w-[180px] rounded-[18px] border px-4 py-4 text-left transition ${
-                              activePackageSlot === slotNumber
-                                ? "border-[#f56a6a] bg-[#fff3f2] shadow-sm"
-                                : "border-[#eadfda] bg-[#fcfaf9]"
-                            }`}
-                          >
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7e7e7e]">
-                              {slotIndex === 1
-                                ? "First session"
-                                : "Second session"}
-                            </p>
-                            <p className="mt-2 text-sm font-medium text-[#2b2b2b]">
-                              {slotDate
-                                ? formatLongDate(slotDate)
-                                : "Select a date"}
-                            </p>
-                            <p className="mt-1 text-sm text-[#7e7e7e]">
-                              {slotTime || "Select a time"}
-                            </p>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-
-                  {isRequestOnly ? (
-                    <div className="space-y-4">
-                      <RequestField
-                        label="Full Name *"
-                        value={requestForm.name}
-                        onChange={(value) =>
-                          setRequestForm((current) => ({
-                            ...current,
-                            name: value,
-                          }))
-                        }
-                      />
-                      <RequestField
-                        label="Email *"
-                        type="email"
-                        value={requestForm.email}
-                        onChange={(value) =>
-                          setRequestForm((current) => ({
-                            ...current,
-                            email: value,
-                          }))
-                        }
-                      />
-                      <RequestField
-                        label="Phone"
-                        value={requestForm.phone}
-                        onChange={(value) =>
-                          setRequestForm((current) => ({
-                            ...current,
-                            phone: value,
-                          }))
-                        }
-                      />
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-[#2b2b2b]">
-                          What support do you need? *
-                        </label>
-                        <textarea
-                          value={requestForm.message}
-                          onChange={(event) =>
-                            setRequestForm((current) => ({
-                              ...current,
-                              message: event.target.value,
-                            }))
-                          }
-                          className="min-h-[140px] w-full rounded-[18px] border border-[#ead9e8] bg-[#f7f5f4] px-4 py-3 text-sm outline-none"
-                          placeholder="Tell us briefly about the legal help you are seeking."
-                        />
-                      </div>
-                    </div>
-                  ) : calendarTargetDate && availableSlots.length ? (
-                    <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
-                      {availableSlots.map((slot) => (
-                        <button
-                          key={slot}
-                          type="button"
-                          onClick={() => {
-                            if (isPackageBooking && activePackageSlot === 2) {
-                              setSelectedSecondTime(slot);
-                            } else {
-                              setSelectedTime(slot);
-                            }
-                            setBookingError("");
-                            setBookingSuccess(null);
-                            setRequestSuccessMessage("");
-                            scrollToContinueActions();
-                          }}
-                          className={`rounded-[18px] border px-4 py-3 text-center text-[18px] font-medium transition sm:px-5 sm:py-4 sm:text-[24px] ${
-                            calendarTargetTime === slot
-                              ? "border-[#f56a6a] bg-[#f56a6a] text-white"
-                              : "border-transparent bg-[#f4f0ee] text-[#1f2d3d] hover:bg-[#ffe9e7]"
-                          }`}
-                        >
-                          <span className="text-[16px]">{slot}</span>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="rounded-[24px] border border-dashed border-[#ecd8d5] bg-[#fcf9f8] px-6 py-8 text-center text-[#7e7e7e]">
-                      {calendarTargetDate
-                        ? "No slots are available for this day. Please choose another date."
-                        : isRequestOnly
-                          ? "Complete the request form and continue to send your legal session request."
-                          : "Choose a date from the calendar to unlock available slots."}
-                    </div>
-                  )}
-                </div>
+                ) : (
+                  <div className="mt-6 rounded-[24px] border border-dashed border-[#ecd8d5] bg-[#fcf9f8] px-6 py-8 text-center text-[#7e7e7e]">
+                    Choose a working day to see available times.
+                  </div>
+                )}
               </div>
             </div>
           </>
         ) : null}
+
+        {/* Step 4: Confirm */}
         {step === 4 ? (
           <>
-            <h2 className="mb-3 text-[36px] font-bold text-[#2b2b2b]">
-              {isRequestOnly
-                ? "Review Your Session Request"
-                : isPackageBooking
-                  ? "Review Your Legal Package"
-                  : isRescheduleMode
-                    ? "Confirm Your Reschedule"
-                    : "Confirm Your Booking"}
+            <h2 className="mb-8 text-[36px] font-bold text-[#2b2b2b]">
+              Confirm Booking
             </h2>
-            <p className="mb-8 text-[16px] text-[#7e7e7e]">
-              {isRequestOnly
-                ? "Review the details you want us to send to the legal team."
-                : isPackageBooking
-                  ? "Review both requested legal consultation slots before sending your package request."
-                  : isRescheduleMode
-                    ? "Review the updated session details and confirm your new appointment time."
-                    : "Review your session details and confirm your appointment."}
-            </p>
             <div className="grid gap-8 lg:grid-cols-[1fr_0.85fr]">
-              <div className="rounded-[32px] bg-white p-8 shadow-[0_18px_45px_rgba(29,25,22,0.06)]">
+              <div className="rounded-[32px] bg-white p-8 shadow-sm">
                 <div className="mb-6 flex items-center gap-4">
                   {selectedPro ? (
-                    <Image
-                      src={selectedPro.image}
-                      alt={selectedPro.name}
-                      width={160}
-                      height={160}
-                      className="h-20 w-20 rounded-[24px] object-cover"
-                    />
+                    selectedPro.image &&
+                    !selectedPro.image.includes("brand-logo") ? (
+                      <Image
+                        src={selectedPro.image}
+                        alt={selectedPro.name}
+                        width={160}
+                        height={160}
+                        className="h-20 w-20 rounded-[24px] object-cover"
+                      />
+                    ) : (
+                      <div className="h-20 w-20 rounded-[24px] bg-gradient-to-br from-[#f5912d] via-[#f56969] to-[#e6b9e6] flex items-center justify-center">
+                        <span className="text-[32px] font-bold text-white">
+                          {selectedPro.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </span>
+                      </div>
+                    )
                   ) : null}
                   <div>
-                    <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#f56969]">
-                      Booking Summary
+                    <p className="text-sm font-medium text-[#f56969]">
+                      Summary
                     </p>
                     <h3 className="text-[28px] font-bold text-[#2b2b2b]">
-                      {selectedPro?.name || "Choose a professional"}
+                      {selectedPro?.name}
                     </h3>
                     <p className="text-sm text-[#7e7e7e]">
                       {selectedPro?.specialty}
@@ -1309,125 +851,57 @@ function BookingPageContent() {
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-[24px] bg-[#f7f5f4] p-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e7e7e]">
+                    <p className="text-xs font-semibold text-[#7e7e7e]">
                       Service
                     </p>
                     <p className="mt-2 text-lg font-semibold text-[#2b2b2b]">
-                      {serviceCatalog.find(
-                        (service) => service.slug === selectedService,
-                      )?.title || "Not selected"}
+                      {
+                        serviceCatalog.find((s) => s.slug === selectedService)
+                          ?.title
+                      }
                     </p>
                   </div>
                   <div className="rounded-[24px] bg-[#f7f5f4] p-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e7e7e]">
-                      Session Fee
-                    </p>
+                    <p className="text-xs font-semibold text-[#7e7e7e]">Fee</p>
                     <p className="mt-2 text-lg font-semibold text-[#2b2b2b]">
-                      {selectedPro?.rate || "TBD"}
+                      {selectedPro?.rate}
                     </p>
                   </div>
                   <div className="rounded-[24px] bg-[#f7f5f4] p-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e7e7e]">
-                      {isRequestOnly ? "Request mode" : "Date"}
-                    </p>
+                    <p className="text-xs font-semibold text-[#7e7e7e]">Date</p>
                     <p className="mt-2 text-lg font-semibold text-[#2b2b2b]">
-                      {isRequestOnly
-                        ? "Manual coordination"
-                        : selectedDate
-                          ? formatLongDate(selectedDate)
-                          : "Not selected"}
+                      {selectedDate
+                        ? formatLongDate(selectedDate)
+                        : "Not selected"}
                     </p>
                   </div>
                   <div className="rounded-[24px] bg-[#f7f5f4] p-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e7e7e]">
-                      {isRequestOnly ? "Support note" : "Time"}
-                    </p>
+                    <p className="text-xs font-semibold text-[#7e7e7e]">Time</p>
                     <p className="mt-2 text-lg font-semibold text-[#2b2b2b]">
-                      {isRequestOnly
-                        ? "Request form submitted below"
-                        : selectedTime || "Not selected"}
+                      {selectedTime || "Not selected"}
                     </p>
                   </div>
-                  {isPackageBooking ? (
-                    <>
-                      <div className="rounded-[24px] bg-[#f7f5f4] p-5">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e7e7e]">
-                          Second session date
-                        </p>
-                        <p className="mt-2 text-lg font-semibold text-[#2b2b2b]">
-                          {selectedSecondDate
-                            ? formatLongDate(selectedSecondDate)
-                            : "Not selected"}
-                        </p>
-                      </div>
-                      <div className="rounded-[24px] bg-[#f7f5f4] p-5">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e7e7e]">
-                          Second session time
-                        </p>
-                        <p className="mt-2 text-lg font-semibold text-[#2b2b2b]">
-                          {selectedSecondTime || "Not selected"}
-                        </p>
-                      </div>
-                    </>
-                  ) : null}
-                  {isRequestOnly ? (
-                    <div className="rounded-[24px] bg-[#f7f5f4] p-5 md:col-span-2">
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e7e7e]">
-                        Request details
-                      </p>
-                      <p className="mt-2 text-base leading-7 text-[#2b2b2b]">
-                        {requestForm.message || "No details added yet."}
-                      </p>
-                    </div>
-                  ) : null}
                 </div>
               </div>
 
-              <div className="rounded-[32px] bg-white p-8 shadow-[0_18px_45px_rgba(29,25,22,0.06)]">
-                <h3 className="text-[28px] font-bold text-[#2b2b2b]">
-                  {isRequestOnly || isPackageBooking
-                    ? "Ready to send?"
-                    : "Ready to confirm?"}
-                </h3>
-                <p className="mt-3 text-[15px] leading-7 text-[#7e7e7e]">
-                  {isRequestOnly
-                    ? "We&apos;ll take this request to our legal support team and help coordinate the next step with the professional."
-                    : isPackageBooking
-                      ? "We&apos;ll send both requested legal package slots to our team for confirmation based on the professional&apos;s availability."
-                      : isRescheduleMode
-                        ? "We&apos;ll update your session on the live backend and refresh it in your client dashboard right after confirmation."
-                        : "We&apos;ll create your session on the live backend and surface it in your client dashboard right after confirmation."}
-                </p>
+              <div className="rounded-[32px] bg-white p-8 shadow-sm">
+                <h3 className="text-[28px] font-bold text-[#2b2b2b]">Ready?</h3>
 
                 {!isAuthenticated && !authLoading ? (
                   <div className="mt-6 rounded-[24px] border border-[#ffe0de] bg-[#fff4f3] p-5 text-sm text-[#694646]">
                     Please{" "}
                     <Link
                       href="/login"
-                      className="font-semibold text-[#f56969] underline"
+                      className="font-semibold text-[#f56969]"
                     >
                       log in
                     </Link>{" "}
-                    as a client before confirming your booking.
+                    first.
                   </div>
                 ) : null}
 
-                {requestSuccessMessage ? (
-                  <StatusBanner
-                    tone="info"
-                    className="mt-6"
-                    title="Request ready"
-                  >
-                    {requestSuccessMessage}
-                  </StatusBanner>
-                ) : null}
-
                 {bookingError ? (
-                  <StatusBanner
-                    tone="error"
-                    className="mt-6"
-                    title="Booking issue"
-                  >
+                  <StatusBanner tone="error" className="mt-6" title="Error">
                     {bookingError}
                   </StatusBanner>
                 ) : null}
@@ -1436,196 +910,81 @@ function BookingPageContent() {
                   <StatusBanner
                     tone="success"
                     className="mt-6"
-                    title={
-                      isRescheduleMode
-                        ? "Booking rescheduled"
-                        : "Booking created"
-                    }
+                    title="Success!"
                   >
-                    <p>
-                      {isRescheduleMode
-                        ? "Booking rescheduled"
-                        : "Booking created"}
-                    </p>
-                    <p className="mt-1">
-                      Reference: {bookingSuccess.bookingId}
-                    </p>
-                    <p className="mt-1">
-                      Scheduled for{" "}
-                      {formatLongDate(new Date(bookingSuccess.scheduledAt))} at{" "}
-                      {selectedTime}
-                    </p>
-                    {!isRescheduleMode ? (
-                      <p className="mt-1">
-                        Complete payment to automatically confirm this session.
-                      </p>
-                    ) : null}
+                    <p>Booking confirmed! ID: {bookingSuccess.bookingId}</p>
                   </StatusBanner>
                 ) : null}
 
-                {paymentSuccessMessage ? (
-                  <StatusBanner
-                    tone="success"
-                    className="mt-6"
-                    title="Payment completed"
-                  >
-                    {paymentSuccessMessage}
-                  </StatusBanner>
-                ) : null}
-
-                {!isRequestOnly &&
-                !isRescheduleMode &&
-                pricingBreakdown.basePrice ? (
+                {pricingBreakdown.basePrice > 0 ? (
                   <div className="mt-6 rounded-[24px] bg-[#f7f5f4] p-5">
                     <p className="text-sm font-semibold text-[#2b2b2b]">
-                      Payment summary
+                      Payment
                     </p>
-                    <div className="mt-4 space-y-3 text-sm text-[#6f6f6f]">
-                      <div className="flex items-center justify-between">
-                        <span>Session fee</span>
-                        <span className="font-medium text-[#2b2b2b]">
+                    <div className="mt-4 space-y-3 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-[#6f6f6f]">Session</span>
+                        <span className="font-medium">
                           {formatInr(pricingBreakdown.basePrice)}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span>GST (18%)</span>
-                        <span className="font-medium text-[#2b2b2b]">
+                      <div className="flex justify-between">
+                        <span className="text-[#6f6f6f]">GST (18%)</span>
+                        <span className="font-medium">
                           {formatInr(pricingBreakdown.gstAmount)}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between border-t border-[#e7dfdc] pt-3 text-base">
-                        <span className="font-semibold text-[#2b2b2b]">
-                          Total due
-                        </span>
-                        <span className="font-semibold text-[#2b2b2b]">
-                          {formatInr(pricingBreakdown.total)}
-                        </span>
+                      <div className="border-t border-[#e7dfdc] pt-3 flex justify-between font-semibold">
+                        <span>Total</span>
+                        <span>{formatInr(pricingBreakdown.total)}</span>
                       </div>
                     </div>
                   </div>
                 ) : null}
 
-                {paymentOrder ? (
-                  <StatusBanner
-                    tone="info"
-                    className="mt-6"
-                    title="Payment order initialized"
-                  >
-                    <p>Order ID: {paymentOrder.orderId}</p>
-                    <p className="mt-1">
-                      Amount: {formatInr(paymentOrder.amount / 100)}{" "}
-                      {paymentOrder.currency}
-                    </p>
-                    <p className="mt-1">
-                      Your Razorpay order is ready for secure checkout.
-                    </p>
-                  </StatusBanner>
-                ) : null}
-
-                {paymentError ? (
-                  <StatusBanner
-                    tone="error"
-                    className="mt-6"
-                    title="Payment setup unavailable"
-                  >
-                    {paymentError}
-                  </StatusBanner>
-                ) : null}
-
                 <div className="mt-8 flex flex-col gap-4">
-                  {isRequestOnly || isPackageBooking ? (
-                    <button
-                      type="button"
-                      onClick={handleContinueLegalRequest}
-                      className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] px-6 py-4 text-sm font-semibold text-white"
-                    >
-                      {isPackageBooking
-                        ? "Continue To Package Request"
-                        : "Send Session Request"}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => void handleConfirmBooking()}
-                      disabled={
-                        submitting || Boolean(bookingSuccess) || authLoading
-                      }
-                      className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] px-6 py-4 text-sm font-semibold text-white disabled:opacity-50"
-                    >
-                      {submitting ? (
-                        <LoaderCircle className="h-4 w-4 animate-spin" />
-                      ) : null}
-                      {bookingSuccess
-                        ? isRescheduleMode
-                          ? "Reschedule Confirmed"
-                          : "Booking Created"
-                        : isRescheduleMode
-                          ? "Confirm Reschedule"
-                          : "Confirm Booking"}
-                    </button>
-                  )}
                   <button
-                    type="button"
-                    onClick={() => setStep(3)}
-                    disabled={submitting}
-                    className="rounded-full border border-[#2b2b2b] px-6 py-4 text-sm font-medium text-[#2b2b2b] disabled:opacity-40"
+                    onClick={() => void handleConfirmBooking()}
+                    disabled={submitting || !!bookingSuccess || authLoading}
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] px-6 py-4 text-sm font-semibold text-white disabled:opacity-50"
                   >
-                    Back To Date &amp; Time
+                    {submitting ? (
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                    ) : null}
+                    {bookingSuccess ? "Confirmed" : "Confirm"}
                   </button>
-                  {!isRequestOnly &&
-                  !isPackageBooking &&
-                  !isRescheduleMode &&
-                  bookingSuccess ? (
-                    <button
-                      type="button"
-                      onClick={() => void handleStartPayment()}
-                      disabled={creatingPaymentOrder}
-                      className="rounded-full border border-[#ead9e8] px-6 py-4 text-sm font-medium text-[#2b2b2b] disabled:opacity-50"
-                    >
-                      {creatingPaymentOrder
-                        ? "Preparing payment..."
-                        : "Pay with Razorpay"}
-                    </button>
-                  ) : null}
-                  {!isRequestOnly && !isPackageBooking && bookingSuccess ? (
-                    <Link
-                      href="/dashboard/client"
-                      className="rounded-full border border-[#f4c7c4] px-6 py-4 text-center text-sm font-medium text-[#f56969]"
-                    >
-                      View In Client Dashboard
-                    </Link>
-                  ) : null}
+                  <button
+                    onClick={() => setStep(3)}
+                    className="rounded-full border border-[#2b2b2b] px-6 py-4 text-sm font-medium text-[#2b2b2b]"
+                  >
+                    Back
+                  </button>
                 </div>
               </div>
             </div>
           </>
         ) : null}
 
-        <div
-          ref={continueActionsRef}
-          className="mt-8 flex items-center justify-between gap-4 sm:mt-10"
-        >
+        {/* Navigation */}
+        <div className="mt-8 flex items-center justify-between gap-4 sm:mt-10">
           <button
-            type="button"
-            onClick={() => setStep((current) => Math.max(1, current - 1))}
-            disabled={step === 1 || submitting || loadingRescheduleBooking}
-            className="rounded-full border border-[#2b2b2b] px-5 py-3 text-sm font-medium text-[#2b2b2b] disabled:opacity-40 sm:px-6"
+            onClick={() => setStep((s) => Math.max(1, s - 1))}
+            disabled={step === 1 || submitting}
+            className="rounded-full border border-[#2b2b2b] px-5 py-3 text-sm font-medium text-[#2b2b2b] disabled:opacity-40"
           >
             Back
           </button>
           <button
             ref={continueButtonRef}
-            type="button"
-            onClick={() => setStep((current) => Math.min(4, current + 1))}
+            onClick={() => setStep((s) => Math.min(4, s + 1))}
             disabled={
               submitting ||
-              loadingRescheduleBooking ||
               (step === 1 && !selectedService) ||
               (step === 2 && !selectedProfessional) ||
-              (step === 3 && !canMoveToStepFour) ||
+              (step === 3 && (!selectedDate || !selectedTime)) ||
               step === 4
             }
-            className="rounded-full bg-[#2b2b2b] px-5 py-3 text-sm font-medium text-white disabled:opacity-40 sm:px-6"
+            className="rounded-full bg-[#2b2b2b] px-5 py-3 text-sm font-medium text-white disabled:opacity-40"
           >
             Continue
           </button>
@@ -1637,39 +996,11 @@ function BookingPageContent() {
 
 function BookingPageFallback() {
   return (
-    <div className="bg-[#f7f5f4] px-6 pb-24 pt-36 lg:px-[120px]">
-      <div className="mx-auto flex min-h-[320px] max-w-[1440px] items-center justify-center rounded-[32px] bg-white shadow-sm">
-        <div className="flex items-center gap-3 text-[#7e7e7e]">
-          <LoaderCircle className="h-5 w-5 animate-spin text-[#f56969]" />
-          <span className="text-sm font-medium">Loading booking flow...</span>
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-[#f7f5f4]">
+      <div className="flex gap-3">
+        <LoaderCircle className="h-5 w-5 animate-spin text-[#f56969]" />
+        <span className="text-[#7e7e7e]">Loading...</span>
       </div>
-    </div>
-  );
-}
-
-function RequestField({
-  label,
-  value,
-  onChange,
-  type = "text",
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
-}) {
-  return (
-    <div>
-      <label className="mb-2 block text-sm font-medium text-[#2b2b2b]">
-        {label}
-      </label>
-      <input
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-[18px] border border-[#ead9e8] bg-[#f7f5f4] px-4 py-3 text-sm outline-none"
-      />
     </div>
   );
 }
@@ -1683,258 +1014,175 @@ function MonthSelect({
   onChange: (value: number) => void;
   options?: { label: string; value: number }[];
 }) {
-  const resolvedOptions =
-    options ||
-    MONTH_NAMES.map((label, index) => ({
-      label,
-      value: index,
-    }));
+  const defaultOptions = MONTH_NAMES.map((label, idx) => ({
+    label,
+    value: idx,
+  }));
 
   return (
     <select
       value={value}
-      onChange={(event) => onChange(Number(event.target.value))}
-      className="rounded-[14px] border border-[#d9dde7] bg-white px-4 py-3 text-[16px] text-[#2b2b2b] shadow-sm outline-none"
+      onChange={(e) => onChange(Number(e.target.value))}
+      className="rounded-[14px] border border-[#d9dde7] bg-white px-4 py-3 text-sm text-[#2b2b2b] outline-none"
     >
-      {resolvedOptions.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
+      {(options || defaultOptions).map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
         </option>
       ))}
     </select>
   );
 }
 
-function CalendarNavButton({
-  children,
-  disabled,
-  onClick,
-}: {
-  children: ReactNode;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className="flex h-[50px] w-[46px] items-center justify-center bg-white text-[#6a6a6a] transition hover:bg-[#fff3f2] disabled:cursor-not-allowed disabled:opacity-40"
-    >
-      {children}
-    </button>
-  );
+// Utilities
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function buildYearOptions(startYear: number) {
-  return Array.from({ length: 3 }, (_, index) => {
-    const year = startYear + index;
-    return { label: String(year), value: year };
-  });
+function isSameDay(a: Date, b: Date) {
+  return a.toDateString() === b.toDateString();
 }
 
-function buildCalendarDays(visibleMonth: Date) {
-  const firstDay = new Date(
-    visibleMonth.getFullYear(),
-    visibleMonth.getMonth(),
-    1,
-  );
-  const calendarStart = new Date(firstDay);
-  const normalizedWeekday = (firstDay.getDay() + 6) % 7;
-  calendarStart.setDate(firstDay.getDate() - normalizedWeekday);
+function isSameMonth(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+}
 
-  return Array.from({ length: 42 }, (_, index) => {
-    const day = new Date(calendarStart);
-    day.setDate(calendarStart.getDate() + index);
+function buildCalendarDays(month: Date) {
+  const first = new Date(month.getFullYear(), month.getMonth(), 1);
+  const start = new Date(first);
+  start.setDate(first.getDate() - ((first.getDay() + 6) % 7));
+
+  return Array.from({ length: 42 }, (_, i) => {
+    const day = new Date(start);
+    day.setDate(start.getDate() + i);
     return day;
   });
 }
 
-function isDateSelectable(
-  date: Date,
-  today: Date,
-  professional: DirectoryProfessional | null,
-  availabilityData: LiveAvailabilityResponse | null,
-  fallbackProfile: ProfessionalProfile | null,
-  fallbackSchedule: AvailabilitySchedule | null,
-) {
-  const normalized = startOfDay(date);
-  if (normalized < today) return false;
-
-  if (professional?.backendId && availabilityData?.availability) {
-    return getLiveSlotsForDate(date, availabilityData).length > 0;
-  }
-
-  if (fallbackProfile && fallbackSchedule) {
-    return (
-      getFallbackSlotsForDate(date, fallbackProfile, fallbackSchedule).length >
-      0
-    );
-  }
-
-  return professional ? true : false;
+function formatTime(hour: number, min: number = 0): string {
+  const period = hour >= 12 ? "PM" : "AM";
+  const h = hour % 12 || 12;
+  const m = String(min).padStart(2, "0");
+  return `${h}:${m} ${period}`;
 }
 
-function getLiveSlotsForDate(
-  date: Date,
-  availabilityData: LiveAvailabilityResponse,
-) {
-  const workingHours = availabilityData.availability?.workingHours;
-  const blockedDates = availabilityData.availability?.blockedDates || [];
-  const specialDates = availabilityData.availability?.specialDates || [];
-  const bookedSlots = availabilityData.bookedSlots || [];
-
-  if (!workingHours) return [];
-  if (blockedDates.some((value) => isSameDay(new Date(value), date))) return [];
-
-  const matchingSpecialDate = specialDates.find((entry) =>
-    isSameDay(new Date(entry.date), date),
-  );
-  if (
-    matchingSpecialDate &&
-    ["off_day", "emergency_leave"].includes(matchingSpecialDate.type)
-  ) {
-    return [];
-  }
-
-  const dayKey = DAY_NAMES[date.getDay()].toLowerCase();
-  const window =
-    matchingSpecialDate?.type === "special_hours"
-      ? {
-          start: matchingSpecialDate.start,
-          end: matchingSpecialDate.end,
-        }
-      : workingHours[dayKey];
-  if (!window?.start || !window?.end) return [];
-
-  const ranges = window.slots?.length
-    ? window.slots.map((slot) => ({
-        startMinutes: parse24HourTime(slot.start),
-        endMinutes: parse24HourTime(slot.end),
-      }))
-    : [
-        {
-          startMinutes: parse24HourTime(window.start),
-          endMinutes: parse24HourTime(window.end),
-        },
-      ];
-
-  return buildSlotsFromRanges(
-    ranges,
-    date,
-    bookedSlots.map((slot) => new Date(slot.start)),
-  );
+function formatLongDate(date: Date): string {
+  return date.toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
 }
 
-function buildFallbackAvailabilitySchedule(
-  professional: ProfessionalProfile,
-): AvailabilitySchedule {
-  const base: AvailabilitySchedule = {
-    0: [],
-    1: [],
-    2: [],
-    3: [],
-    4: [],
-    5: [],
-    6: [],
+function combineDateAndTime(date: Date, time: string): Date {
+  const [timeStr, period] = time.split(" ");
+  const [h, m] = timeStr.split(":").map(Number);
+  let hour24 = h;
+
+  if (period === "PM" && h !== 12) hour24 += 12;
+  if (period === "AM" && h === 12) hour24 = 0;
+
+  const result = new Date(date);
+  result.setHours(hour24, m, 0, 0);
+  return result;
+}
+
+function normalizeAvailability(
+  availability?: Availability | null,
+): Availability | undefined {
+  if (!availability) return undefined;
+
+  return {
+    timezone: availability.timezone,
+    workingHours: availability.workingHours || {},
+    blockedDates:
+      availability.blockedDates?.map((value) => normalizeDateString(value)) ||
+      [],
+    specialDates:
+      availability.specialDates?.map((entry) => ({
+        ...entry,
+        date: normalizeDateString(entry.date),
+      })) || [],
   };
-  const allowedDays = new Set([0, 1, 2, 3, 4, 5, 6]);
+}
 
-  for (const day of parseDaysOff(professional.daysOff)) {
+function createAvailabilityFromProfile(
+  professional: ProfessionalProfile,
+): Availability | undefined {
+  const workingHours = buildWorkingHoursFromText(
+    professional.workingHours,
+    professional.daysOff,
+  );
+
+  if (!workingHours) return undefined;
+
+  return {
+    timezone: "Asia/Kolkata",
+    workingHours,
+    blockedDates: [],
+    specialDates: [],
+  };
+}
+
+function buildWorkingHoursFromText(
+  workingHoursText?: string,
+  daysOffText?: string,
+): Record<string, WorkingHours> | undefined {
+  if (!workingHoursText?.trim()) return undefined;
+
+  const workingHours: Record<string, WorkingHours> = {};
+  const allowedDays = new Set<number>([0, 1, 2, 3, 4, 5, 6]);
+
+  for (const day of parseDaysOffText(daysOffText)) {
     allowedDays.delete(day);
   }
 
-  if (!professional.workingHours) {
-    for (const day of allowedDays) {
-      base[day] = [{ startMinutes: 9 * 60, endMinutes: 18 * 60 }];
-    }
-    return base;
-  }
-
-  const segments = professional.workingHours
+  const segments = workingHoursText
     .split(";")
     .map((segment) => segment.trim())
     .filter(Boolean);
 
-  let foundDaySpecificSegment = false;
+  if (!segments.length) return undefined;
+
+  let hasExplicitDays = false;
 
   for (const segment of segments) {
-    const days = parseDaysFromSegment(segment, allowedDays);
-    const ranges = parseTimeRanges(segment);
-    if (!ranges.length) continue;
+    const slots = parseTimeRangesFromText(segment);
+    if (!slots.length) continue;
 
+    const days = parseDaysFromSegmentText(segment, allowedDays);
     if (days.length) {
-      foundDaySpecificSegment = true;
+      hasExplicitDays = true;
       for (const day of days) {
-        if (allowedDays.has(day)) {
-          base[day] = [...base[day], ...ranges];
-        }
+        workingHours[DAY_KEYS[day]] = createWorkingWindow(slots);
       }
-    } else {
-      for (const day of allowedDays) {
-        base[day] = [...base[day], ...ranges];
-      }
+      continue;
     }
-  }
 
-  if (!foundDaySpecificSegment && segments.length === 1) {
-    const ranges = parseTimeRanges(segments[0]);
     for (const day of allowedDays) {
-      base[day] = ranges;
+      workingHours[DAY_KEYS[day]] = createWorkingWindow(slots);
     }
   }
 
-  return base;
-}
-
-function getFallbackSlotsForDate(
-  date: Date,
-  professional: ProfessionalProfile,
-  schedule: AvailabilitySchedule,
-) {
-  const ranges = schedule[date.getDay()] || [];
-  if (!ranges.length) return [];
-  return buildSlotsFromRanges(ranges, date, [], !professional.workingHours);
-}
-
-function buildSlotsFromRanges(
-  ranges: TimeRange[],
-  date: Date,
-  bookedStarts: Date[],
-  allowDefault = false,
-) {
-  const now = new Date();
-  const isTodayDate = isSameDay(date, now);
-  const uniqueSlots = new Set<string>();
-
-  for (const range of ranges) {
-    for (
-      let minute = range.startMinutes;
-      minute < range.endMinutes;
-      minute += 60
-    ) {
-      const slotDate = new Date(date);
-      slotDate.setHours(Math.floor(minute / 60), minute % 60, 0, 0);
-
-      if (isTodayDate && slotDate <= now) continue;
-      if (
-        bookedStarts.some((booked) => booked.getTime() === slotDate.getTime())
-      )
-        continue;
-
-      uniqueSlots.add(formatMinutes(minute));
+  if (!hasExplicitDays && segments.length === 1) {
+    const slots = parseTimeRangesFromText(segments[0]);
+    for (const day of allowedDays) {
+      workingHours[DAY_KEYS[day]] = createWorkingWindow(slots);
     }
   }
 
-  if (!uniqueSlots.size && allowDefault) {
-    return ["9:00 AM", "10:00 AM", "11:00 AM", "1:00 PM", "2:00 PM", "3:00 PM"];
-  }
-
-  return Array.from(uniqueSlots).sort(compareTimeStrings);
+  return Object.keys(workingHours).length ? workingHours : undefined;
 }
 
-function parseDaysOff(input?: string) {
-  if (!input) return [];
+function createWorkingWindow(slots: TimeSlot[]): WorkingHours {
+  return {
+    start: slots[0].start,
+    end: slots[slots.length - 1].end,
+    slots,
+  };
+}
+
+function parseDaysOffText(input = "") {
   const normalized = input.toLowerCase();
   const days = new Set<number>();
 
@@ -1943,17 +1191,21 @@ function parseDaysOff(input?: string) {
     days.add(6);
   }
 
-  for (const [index, name] of DAY_NAMES.entries()) {
-    if (normalized.includes(name.toLowerCase())) {
+  DAY_KEYS.forEach((name, index) => {
+    if (normalized.includes(name)) {
       days.add(index);
     }
-  }
+  });
 
   return Array.from(days);
 }
 
-function parseDaysFromSegment(segment: string, allowedDays: Set<number>) {
+function parseDaysFromSegmentText(
+  segment: string,
+  allowedDays: Set<number>,
+) {
   const normalized = segment.toLowerCase();
+
   if (normalized.includes("weekdays")) {
     return [1, 2, 3, 4, 5].filter((day) => allowedDays.has(day));
   }
@@ -1963,10 +1215,9 @@ function parseDaysFromSegment(segment: string, allowedDays: Set<number>) {
   }
 
   const beforeColon = segment.split(":")[0]?.toLowerCase() || normalized;
-  const matches = DAY_NAMES.map((name, index) => ({
-    name: name.toLowerCase(),
-    index,
-  })).filter((day) => beforeColon.includes(day.name));
+  const matches = DAY_KEYS.map((name, index) => ({ name, index })).filter(
+    (day) => beforeColon.includes(day.name),
+  );
 
   if (matches.length >= 2 && beforeColon.includes("to")) {
     const start = matches[0].index;
@@ -1974,7 +1225,9 @@ function parseDaysFromSegment(segment: string, allowedDays: Set<number>) {
     return expandDayRange(start, end).filter((day) => allowedDays.has(day));
   }
 
-  return matches.map((day) => day.index).filter((day) => allowedDays.has(day));
+  return matches
+    .map((item) => item.index)
+    .filter((day) => allowedDays.has(day));
 }
 
 function expandDayRange(start: number, end: number) {
@@ -1988,16 +1241,16 @@ function expandDayRange(start: number, end: number) {
   ];
 }
 
-function parseTimeRanges(segment: string) {
-  const ranges: TimeRange[] = [];
+function parseTimeRangesFromText(segment: string): TimeSlot[] {
   const pattern =
     /(\d{1,2}(?::\d{2})?\s*[APap][Mm])\s*-\s*(\d{1,2}(?::\d{2})?\s*[APap][Mm])/g;
-  let match: RegExpExecArray | null = pattern.exec(segment);
+  const ranges: TimeSlot[] = [];
+  let match = pattern.exec(segment);
 
   while (match) {
     ranges.push({
-      startMinutes: parseTwelveHourTime(match[1]),
-      endMinutes: parseTwelveHourTime(match[2]),
+      start: normalizeClockTime(match[1]),
+      end: normalizeClockTime(match[2]),
     });
     match = pattern.exec(segment);
   }
@@ -2005,65 +1258,21 @@ function parseTimeRanges(segment: string) {
   return ranges;
 }
 
-function parseTwelveHourTime(value: string) {
+function normalizeClockTime(value: string) {
   const match = value.trim().match(/(\d{1,2})(?::(\d{2}))?\s*([APap][Mm])/);
-  if (!match) return 0;
+  if (!match) return value;
 
   const hour = Number(match[1]) % 12;
   const minute = match[2] ? Number(match[2]) : 0;
   const meridiem = match[3].toUpperCase();
+  const normalizedHour = hour + (meridiem === "PM" ? 12 : 0);
 
-  return hour * 60 + minute + (meridiem === "PM" ? 12 * 60 : 0);
+  return `${String(normalizedHour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
-function parse24HourTime(value: string) {
-  const [hour, minute] = value.split(":").map(Number);
-  return hour * 60 + minute;
-}
+function normalizeDateString(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
 
-function formatMinutes(totalMinutes: number) {
-  const hour24 = Math.floor(totalMinutes / 60);
-  const minute = totalMinutes % 60;
-  const suffix = hour24 >= 12 ? "PM" : "AM";
-  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
-  return `${hour12}:${String(minute).padStart(2, "0")} ${suffix}`;
-}
-
-function compareTimeStrings(a: string, b: string) {
-  return parseTwelveHourTime(a) - parseTwelveHourTime(b);
-}
-
-function combineDateAndTime(date: Date, time: string) {
-  const totalMinutes = parseTwelveHourTime(time);
-  const next = new Date(date);
-  next.setHours(Math.floor(totalMinutes / 60), totalMinutes % 60, 0, 0);
-  return next;
-}
-
-function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function isSameDay(first: Date, second: Date) {
-  return (
-    first.getFullYear() === second.getFullYear() &&
-    first.getMonth() === second.getMonth() &&
-    first.getDate() === second.getDate()
-  );
-}
-
-function isSameMonth(first: Date, second: Date) {
-  return (
-    first.getFullYear() === second.getFullYear() &&
-    first.getMonth() === second.getMonth()
-  );
-}
-
-function formatLongDate(date: Date) {
-  return date.toLocaleDateString("en-IN", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")}`;
 }

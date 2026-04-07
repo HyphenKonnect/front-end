@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { useLayoutEffect } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 
 export function RouteScrollReset() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const search = searchParams.toString();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-  }, [pathname]);
+  }, [pathname, search]);
 
   return null;
 }
