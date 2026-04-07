@@ -59,8 +59,17 @@ export function loadRazorpayScript() {
       );
 
       if (existing) {
+        if (window.Razorpay) {
+          resolve(true);
+          return;
+        }
+
         existing.addEventListener("load", () => resolve(true), { once: true });
         existing.addEventListener("error", () => resolve(false), { once: true });
+
+        window.setTimeout(() => {
+          resolve(Boolean(window.Razorpay));
+        }, 1500);
         return;
       }
 

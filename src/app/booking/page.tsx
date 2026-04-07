@@ -147,6 +147,10 @@ function BookingPageContent() {
     bookingId: string;
     scheduledAt: string;
   } | null>(null);
+  const [pendingPayment, setPendingPayment] = useState<{
+    bookingId: string;
+    scheduledAt: string;
+  } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [bookedSlots, setBookedSlots] = useState<BookedSlotRecord[]>([]);
   const [requestedBooking, setRequestedBooking] =
@@ -574,6 +578,93 @@ function BookingPageContent() {
   // ============================================================
   // HANDLERS
   // ============================================================
+  const launchPaymentForBooking = async ({
+    bookingId,
+    scheduledAt,
+  }: {
+    bookingId: string;
+    scheduledAt: string;
+  }) => {
+    setPendingPayment({ bookingId, scheduledAt });
+
+    const orderResponse = await apiFetch("/api/payments/create-order", {
+      method: "POST",
+      body: JSON.stringify({ bookingId }),
+    });
+
+    const order = await parseJsonResponse<{
+      bookingId: string | null;
+      orderId: string;
+      amount: number;
+      currency: string;
+      key: string;
+    }>(orderResponse);
+
+    await openRazorpayCheckout({
+      order: {
+        bookingId: order.bookingId || bookingId,
+        orderId: order.orderId,
+        amount: order.amount,
+        currency: order.currency,
+        key: order.key,
+      },
+      name: "The Hyphen Konnect",
+      description: `${
+        serviceCatalog.find((service) => service.slug === selectedService)
+          ?.title || "Session"
+      } session`,
+      prefill: {
+        name: user?.name,
+        email: user?.email,
+        contact: user?.phone,
+      },
+      onSuccess: async (paymentResponse) => {
+        const verifyResponse = await apiFetch("/api/payments/verify", {
+          method: "POST",
+          body: JSON.stringify({
+            bookingId,
+            orderId: paymentResponse.razorpay_order_id,
+            paymentId: paymentResponse.razorpay_payment_id,
+            signature: paymentResponse.razorpay_signature,
+          }),
+        });
+
+        const verification = await parseJsonResponse<{
+          success: boolean;
+          method?: string;
+        }>(verifyResponse);
+
+        const confirmResponse = await apiFetch(`/api/bookings/${bookingId}/confirm`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            paymentId: paymentResponse.razorpay_payment_id,
+            paymentMethod: verification.method || "upi",
+            orderId: paymentResponse.razorpay_order_id,
+            signature: paymentResponse.razorpay_signature,
+          }),
+        });
+        await parseJsonResponse(confirmResponse);
+
+        setPendingPayment(null);
+        setBookingSuccess({
+          bookingId,
+          scheduledAt,
+        });
+        router.push(
+          `/dashboard/client?bookingId=${encodeURIComponent(bookingId)}&status=confirmed`,
+        );
+      },
+      onFailure: (message) => {
+        setBookingError(message);
+      },
+      onDismiss: () => {
+        setBookingError(
+          "Payment window closed before completion. Your booking is still pending payment. You can retry now or finish payment from the dashboard.",
+        );
+      },
+    });
+  };
+
   const handleConfirmBooking = async () => {
     if (!selectedPro || !selectedDate || !selectedTime) return;
 
@@ -586,6 +677,11 @@ function BookingPageContent() {
       setSubmitting(true);
       setBookingError("");
       setBookingSuccess(null);
+
+      if (pendingPayment && !requestedBookingId) {
+        await launchPaymentForBooking(pendingPayment);
+        return;
+      }
 
       const scheduledAt = combineDateAndTime(selectedDate, selectedTime);
       if (!selectedPro.backendId) {
@@ -639,94 +735,21 @@ function BookingPageContent() {
       }
 
       try {
-        const orderResponse = await apiFetch("/api/payments/create-order", {
-          method: "POST",
-          body: JSON.stringify({ bookingId }),
-        });
-
-        const order = await parseJsonResponse<{
-          bookingId: string | null;
-          orderId: string;
-          amount: number;
-          currency: string;
-          key: string;
-        }>(orderResponse);
-
-        await openRazorpayCheckout({
-          order: {
-            bookingId: order.bookingId || bookingId,
-            orderId: order.orderId,
-            amount: order.amount,
-            currency: order.currency,
-            key: order.key,
-          },
-          name: "The Hyphen Konnect",
-          description: `${
-            serviceCatalog.find((service) => service.slug === selectedService)
-              ?.title || "Session"
-          } session`,
-          prefill: {
-            name: user?.name,
-            email: user?.email,
-            contact: user?.phone,
-          },
-          onSuccess: async (paymentResponse) => {
-            const verifyResponse = await apiFetch("/api/payments/verify", {
-              method: "POST",
-              body: JSON.stringify({
-                bookingId,
-                orderId: paymentResponse.razorpay_order_id,
-                paymentId: paymentResponse.razorpay_payment_id,
-                signature: paymentResponse.razorpay_signature,
-              }),
-            });
-
-            const verification = await parseJsonResponse<{
-              success: boolean;
-              method?: string;
-            }>(verifyResponse);
-
-            const confirmResponse = await apiFetch(`/api/bookings/${bookingId}/confirm`, {
-              method: "PATCH",
-              body: JSON.stringify({
-                paymentId: paymentResponse.razorpay_payment_id,
-                paymentMethod: verification.method || "upi",
-                orderId: paymentResponse.razorpay_order_id,
-                signature: paymentResponse.razorpay_signature,
-              }),
-            });
-            await parseJsonResponse(confirmResponse);
-
-            setBookingSuccess({
-              bookingId,
-              scheduledAt: data.scheduledAt || scheduledAt.toISOString(),
-            });
-            router.push(
-              `/dashboard/client?bookingId=${encodeURIComponent(bookingId)}&status=confirmed`,
-            );
-          },
-          onFailure: (message) => {
-            setBookingError(message);
-          },
-          onDismiss: () => {
-            setBookingError(
-              "Payment window closed before completion. Your booking is pending payment in the dashboard.",
-            );
-            router.push(
-              `/dashboard/client?bookingId=${encodeURIComponent(bookingId)}&action=pay&status=booked`,
-            );
-          },
+        await launchPaymentForBooking({
+          bookingId,
+          scheduledAt: data.scheduledAt || scheduledAt.toISOString(),
         });
       } catch (paymentError) {
         const message =
           paymentError instanceof Error
             ? paymentError.message
-            : "Payment setup failed. Continue payment from the dashboard.";
+            : "Payment setup failed. Retry payment below or continue from the dashboard.";
 
         setBookingError(message);
-        router.push(
-          `/dashboard/client?bookingId=${encodeURIComponent(bookingId)}&action=pay&status=booked`,
-        );
+        setPendingPayment({
+          bookingId,
+          scheduledAt: data.scheduledAt || scheduledAt.toISOString(),
+        });
       }
     } catch (error) {
       setBookingError(
@@ -1188,6 +1211,20 @@ function BookingPageContent() {
                   </StatusBanner>
                 ) : null}
 
+                {pendingPayment && !bookingSuccess ? (
+                  <div className="mt-6 rounded-[24px] border border-[#f3d9a2] bg-[#fff8ea] p-5 text-sm text-[#6c4c13]">
+                    Booking ID {pendingPayment.bookingId} is waiting for payment.
+                    If Razorpay does not open, you can retry here or finish payment in{" "}
+                    <Link
+                      href={`/dashboard/client?bookingId=${encodeURIComponent(pendingPayment.bookingId)}&action=pay&status=booked`}
+                      className="font-semibold text-[#d56d18]"
+                    >
+                      the dashboard
+                    </Link>
+                    .
+                  </div>
+                ) : null}
+
                 {pricingBreakdown.basePrice > 0 ? (
                   <div className="mt-6 rounded-[24px] bg-[#f7f5f4] p-5">
                     <p className="text-sm font-semibold text-[#2b2b2b]">
@@ -1229,7 +1266,9 @@ function BookingPageContent() {
                         : "Confirmed"
                       : requestedBookingId
                         ? "Reschedule Booking"
-                        : "Proceed to Pay"}
+                        : pendingPayment
+                          ? "Retry Payment"
+                          : "Proceed to Pay"}
                   </button>
                   <button
                     onClick={() => setStep(3)}

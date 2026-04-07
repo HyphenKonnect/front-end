@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CalendarDays, CreditCard, MessageSquare, Receipt, Video } from "lucide-react";
@@ -13,7 +13,11 @@ import {
   getServiceLabel,
 } from "../../lib/booking-helpers";
 import { formatDateTime, formatInr } from "../../lib/formatting";
-import { openRazorpayCheckout, type RazorpayOrderPayload } from "../../lib/razorpay";
+import {
+  loadRazorpayScript,
+  openRazorpayCheckout,
+  type RazorpayOrderPayload,
+} from "../../lib/razorpay";
 import { StatusBanner } from "../ui/StatusBanner";
 import { DashboardChatPanel } from "./DashboardChatPanel";
 import {
@@ -97,6 +101,10 @@ export function ClientDashboard() {
   } | null>(null);
 
   useEffect(() => {
+    void loadRazorpayScript();
+  }, []);
+
+  useEffect(() => {
     let ignore = false;
 
     const loadBookings = async () => {
@@ -159,6 +167,18 @@ export function ClientDashboard() {
     setSuccessMessage("Booking created. Complete payment to confirm your session.");
     void handleCreatePaymentOrder(requestedBookingId);
   }, [bookings, paymentState?.bookingId, requestedAction, requestedBookingId, requestedStatus]);
+
+  useEffect(() => {
+    if (!selectedBookingId) return;
+
+    const booking = bookings.find((item) => item._id === selectedBookingId);
+    if (!booking) return;
+    if (booking.paymentStatus === "captured") return;
+    if (["cancelled", "completed"].includes(booking.status)) return;
+    if (paymentState?.bookingId === selectedBookingId) return;
+
+    void handleCreatePaymentOrder(selectedBookingId);
+  }, [bookings, paymentState?.bookingId, selectedBookingId]);
 
   const refreshBookings = async () => {
     const [bookingsResponse, paymentsResponse] = await Promise.all([
@@ -246,6 +266,9 @@ export function ClientDashboard() {
     const booking = bookings.find((item) => item._id === bookingId);
     if (!booking) return;
 
+    setError(null);
+    setSuccessMessage(null);
+
     const order =
       paymentState?.bookingId === bookingId && paymentState.order
         ? paymentState.order
@@ -254,9 +277,6 @@ export function ClientDashboard() {
     if (!order) return;
 
     try {
-      setError(null);
-      setSuccessMessage(null);
-
       await openRazorpayCheckout({
         order,
         name: "The Hyphen Konnect",
@@ -313,6 +333,10 @@ export function ClientDashboard() {
           : "We could not start Razorpay checkout.",
       );
     }
+  };
+
+  const stopCardClick = (event: MouseEvent<HTMLElement>) => {
+    event.stopPropagation();
   };
 
   const upcomingCount = bookings.filter((item) =>
@@ -441,25 +465,23 @@ export function ClientDashboard() {
                         {canCancel ? (
                           <button
                             type="button"
-                            onClick={() => void handleCancelBooking(booking._id)}
+                            onClick={(event) => {
+                              stopCardClick(event);
+                              void handleCancelBooking(booking._id);
+                            }}
                             disabled={actionBookingId === booking._id}
                             className="rounded-full border border-[#f4c7c4] px-3 py-1 text-xs font-medium text-[#f56969] disabled:opacity-50"
                           >
                             {actionBookingId === booking._id ? "Cancelling..." : "Cancel"}
                           </button>
                         ) : null}
-                        {canCancel ? (
-                          <Link
-                            href={`/booking?service=${booking.serviceId || ""}&bookingId=${booking._id}`}
-                            className="rounded-full border border-[#ead9e8] px-3 py-1 text-xs font-medium text-[#2b2b2b]"
-                          >
-                            Reschedule
-                          </Link>
-                        ) : null}
                         {canPay ? (
                           <button
                             type="button"
-                            onClick={() => void handlePayNow(booking._id)}
+                            onClick={(event) => {
+                              stopCardClick(event);
+                              void handlePayNow(booking._id);
+                            }}
                             disabled={paymentState?.loading && paymentState.bookingId === booking._id}
                             className="rounded-full bg-[#2b2b2b] px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
                           >
@@ -528,6 +550,23 @@ export function ClientDashboard() {
                     >
                       Open session room
                     </Link>
+                  ) : null}
+                  {selectedBooking.paymentStatus !== "captured" &&
+                  !["cancelled", "completed"].includes(selectedBooking.status) ? (
+                    <button
+                      type="button"
+                      onClick={() => void handlePayNow(selectedBooking._id)}
+                      disabled={
+                        paymentState?.loading &&
+                        paymentState.bookingId === selectedBooking._id
+                      }
+                      className="mt-4 inline-flex rounded-full bg-[#2b2b2b] px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
+                    >
+                      {paymentState?.loading &&
+                      paymentState.bookingId === selectedBooking._id
+                        ? "Preparing..."
+                        : "Pay now"}
+                    </button>
                   ) : null}
                   {paymentState?.bookingId === selectedBooking._id && paymentState.order ? (
                     <StatusBanner tone="info" className="mt-4" title="Payment order ready">
