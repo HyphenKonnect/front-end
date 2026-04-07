@@ -1,11 +1,24 @@
 import { aboutValues } from "../../components/site/data";
-import { GradientCta, PageHero, SectionTitle, SurfaceCard } from "../../components/site/page-primitives";
+import {
+  GradientCta,
+  PageHero,
+  SectionTitle,
+  SurfaceCard,
+} from "../../components/site/page-primitives";
 
 const team = [
-  { name: "Dr. Sarah Mitchell", role: "Chief Medical Officer", specialty: "Internal Medicine" },
-  { name: "Dr. James Chen", role: "Head of Mental Health", specialty: "Clinical Psychology" },
-  { name: "Maria Rodriguez, JD", role: "Legal Services Director", specialty: "Family Law" },
-  { name: "Dr. Emily Thompson", role: "Wellness Program Lead", specialty: "Holistic Medicine" },
+  {
+    name: "Yogitha Rao",
+    role: "Founder & CEO",
+    specialty:
+      "An ISB graduate, Yogitha founded THK to bridge the critical gap in support for abuse survivors and those seeking holistic wellness. With a vision to create a one-stop platform for mental health, medical, and legal care, she is committed to ensuring that every individual who reaches out finds healing, strength, and hope.",
+  },
+  {
+    name: "Sreshta Rao",
+    role: "Co-Founder & Head, Legal Counsel",
+    specialty:
+      "Sreshta holds a Human Rights Law degree from the University of Edinburgh and extensive experience across NGOs. She has also worked for the rights of Afghan refugees in the UK, strengthening her global perspective on justice. With a dedicated team of lawyers, she offers expert legal support to survivors of abuse.",
+  },
 ];
 
 export default function AboutPage() {
@@ -21,15 +34,22 @@ export default function AboutPage() {
       <section className="bg-white px-6 py-20 lg:px-[120px]">
         <div className="mx-auto grid max-w-[1440px] gap-12 md:grid-cols-2">
           <SurfaceCard className="bg-gradient-to-br from-[#f7f5f4] to-white">
-            <h2 className="mb-4 text-[32px] font-bold text-[#2b2b2b]">Our Mission</h2>
+            <h2 className="mb-4 text-[32px] font-bold text-[#2b2b2b]">
+              Our Mission
+            </h2>
             <p className="text-[16px] leading-[26px] text-[#7e7e7e]">
-              To provide accessible, compassionate, and comprehensive support through technology that connects people with licensed professionals they can trust.
+              To provide accessible, compassionate, and comprehensive support
+              through technology that connects people with licensed
+              professionals they can trust.
             </p>
           </SurfaceCard>
           <SurfaceCard className="bg-gradient-to-br from-[#f7f5f4] to-white">
-            <h2 className="mb-4 text-[32px] font-bold text-[#2b2b2b]">Our Vision</h2>
+            <h2 className="mb-4 text-[32px] font-bold text-[#2b2b2b]">
+              Our Vision
+            </h2>
             <p className="text-[16px] leading-[26px] text-[#7e7e7e]">
-              To create a world where quality healthcare, mental wellness, legal guidance, and holistic programs are within reach for everyone.
+              To create a world where quality healthcare, mental wellness, legal
+              guidance, and holistic programs are within reach for everyone.
             </p>
           </SurfaceCard>
         </div>
@@ -37,15 +57,23 @@ export default function AboutPage() {
 
       <section className="bg-[#f7f5f4] px-6 py-20 lg:px-[120px]">
         <div className="mx-auto max-w-[1440px]">
-          <SectionTitle title="Our Core" highlight="Values" description="The principles that guide how we build the platform and support our community." />
+          <SectionTitle
+            title="Our Core"
+            highlight="Values"
+            description="The principles that guide how we build the platform and support our community."
+          />
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
             {aboutValues.map((value) => (
               <SurfaceCard key={value.title}>
                 <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-[#f5912d]/10 via-[#f56969]/10 to-[#e6b9e6]/10">
                   <value.icon className="h-7 w-7 text-[#f56969]" />
                 </div>
-                <h3 className="mb-3 text-[20px] font-bold text-[#2b2b2b]">{value.title}</h3>
-                <p className="text-[15px] leading-[24px] text-[#7e7e7e]">{value.description}</p>
+                <h3 className="mb-3 text-[20px] font-bold text-[#2b2b2b]">
+                  {value.title}
+                </h3>
+                <p className="text-[15px] leading-[24px] text-[#7e7e7e]">
+                  {value.description}
+                </p>
               </SurfaceCard>
             ))}
           </div>
@@ -54,15 +82,29 @@ export default function AboutPage() {
 
       <section className="bg-white px-6 py-20 lg:px-[120px]">
         <div className="mx-auto max-w-[1440px]">
-          <SectionTitle title="Meet Our" highlight="Leadership" description="Experienced professionals dedicated to building a trusted care experience." />
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+          <SectionTitle
+            title="Meet Our"
+            highlight="Leadership"
+            description="Experienced professionals dedicated to building a trusted care experience."
+          />
+          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-2">
             {team.map((member) => (
-              <div key={member.name} className="rounded-[24px] bg-[#f7f5f4] p-6 text-center">
+              <div
+                key={member.name}
+                className="rounded-[24px] bg-[#f7f5f4] p-6 text-center"
+              >
                 <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] text-[24px] font-bold text-white">
-                  {member.name.split(" ").map((part) => part[0]).join("")}
+                  {member.name
+                    .split(" ")
+                    .map((part) => part[0])
+                    .join("")}
                 </div>
-                <h3 className="mb-2 text-[18px] font-bold text-[#2b2b2b]">{member.name}</h3>
-                <p className="mb-2 text-[14px] font-medium text-[#f56969]">{member.role}</p>
+                <h3 className="mb-2 text-[18px] font-bold text-[#2b2b2b]">
+                  {member.name}
+                </h3>
+                <p className="mb-2 text-[14px] font-medium text-[#f56969]">
+                  {member.role}
+                </p>
                 <p className="text-[14px] text-[#7e7e7e]">{member.specialty}</p>
               </div>
             ))}
