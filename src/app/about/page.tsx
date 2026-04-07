@@ -10,12 +10,14 @@ const team = [
   {
     name: "Yogitha Rao",
     role: "Founder & CEO",
+    image: "/yogitha-rao.png",
     specialty:
       "An ISB graduate, Yogitha founded THK to bridge the critical gap in support for abuse survivors and those seeking holistic wellness. With a vision to create a one-stop platform for mental health, medical, and legal care, she is committed to ensuring that every individual who reaches out finds healing, strength, and hope.",
   },
   {
     name: "Sreshta Rao",
     role: "Co-Founder & Head, Legal Counsel",
+    image: "/sreshta-rao.png",
     specialty:
       "Sreshta holds a Human Rights Law degree from the University of Edinburgh and extensive experience across NGOs. She has also worked for the rights of Afghan refugees in the UK, strengthening her global perspective on justice. With a dedicated team of lawyers, she offers expert legal support to survivors of abuse.",
   },
@@ -87,25 +89,44 @@ export default function AboutPage() {
             highlight="Leadership"
             description="Experienced professionals dedicated to building a trusted care experience."
           />
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-2">
+          <div className="flex flex-wrap justify-center gap-8">
             {team.map((member) => (
               <div
                 key={member.name}
-                className="rounded-[24px] bg-[#f7f5f4] p-6 text-center"
+                className="w-full overflow-hidden rounded-[24px] bg-[#f7f5f4] transition-transform hover:shadow-lg sm:w-[90%] md:w-[45%] lg:w-[500px]"
               >
-                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] text-[24px] font-bold text-white">
-                  {member.name
-                    .split(" ")
-                    .map((part) => part[0])
-                    .join("")}
+                {/* Image Section */}
+                <div className="relative h-96 w-full overflow-hidden bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6]">
+                  {member.image ? (
+                    <img
+                      src={member.image}
+                      alt={member.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <div className="text-[64px] font-bold text-white">
+                        {member.name
+                          .split(" ")
+                          .map((part) => part[0])
+                          .join("")}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <h3 className="mb-2 text-[18px] font-bold text-[#2b2b2b]">
-                  {member.name}
-                </h3>
-                <p className="mb-2 text-[14px] font-medium text-[#f56969]">
-                  {member.role}
-                </p>
-                <p className="text-[14px] text-[#7e7e7e]">{member.specialty}</p>
+
+                {/* Content Section */}
+                <div className="p-8">
+                  <h3 className="mb-2 text-[22px] font-bold text-[#2b2b2b]">
+                    {member.name}
+                  </h3>
+                  <p className="mb-4 text-[15px] font-medium text-[#f56969]">
+                    {member.role}
+                  </p>
+                  <p className="text-[15px] leading-[24px] text-[#7e7e7e]">
+                    {member.specialty}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
