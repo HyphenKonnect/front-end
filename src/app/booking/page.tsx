@@ -78,6 +78,24 @@ type BookingCreationResponse = {
   scheduledAt?: string;
 };
 
+type BookedSlotRecord = {
+  start: string;
+  end: string;
+};
+
+type BookingDetailsResponse = {
+  _id: string;
+  serviceId?: string;
+  scheduledAt: string;
+  professionalId?:
+    | string
+    | {
+        _id?: string;
+        id?: string;
+        name?: string;
+      };
+};
+
 const DAY_KEYS = [
   "sunday",
   "monday",
@@ -106,6 +124,7 @@ function BookingPageContent() {
 
   const initialService = searchParams.get("service") || "";
   const requestedProfessional = searchParams.get("professional") || "";
+  const requestedBookingId = searchParams.get("bookingId") || "";
 
   // State
   const [step, setStep] = useState(1);
@@ -129,6 +148,9 @@ function BookingPageContent() {
     scheduledAt: string;
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [bookedSlots, setBookedSlots] = useState<BookedSlotRecord[]>([]);
+  const [requestedBooking, setRequestedBooking] =
+    useState<BookingDetailsResponse | null>(null);
 
   const expectedCategory = useMemo(() => {
     if (selectedService === "mental-wellness") return "therapist";
@@ -322,6 +344,32 @@ function BookingPageContent() {
     setStep(2);
   }, [professionalOptions, requestedProfessional, selectedProfessional]);
 
+  useEffect(() => {
+    if (!requestedBooking || !professionalOptions.length) return;
+
+    const requestedProfessionalId =
+      typeof requestedBooking.professionalId === "object"
+        ? requestedBooking.professionalId?._id ||
+          requestedBooking.professionalId?.id
+        : requestedBooking.professionalId;
+
+    if (!requestedProfessionalId) return;
+
+    const matchedProfessional = professionalOptions.find(
+      (professional) => professional.backendId === requestedProfessionalId,
+    );
+
+    if (!matchedProfessional) return;
+
+    const scheduledAt = new Date(requestedBooking.scheduledAt);
+
+    setSelectedProfessional(String(matchedProfessional.id));
+    setSelectedDate(startOfDay(scheduledAt));
+    setSelectedTime(formatTime(scheduledAt.getHours(), scheduledAt.getMinutes()));
+    setVisibleMonth(new Date(scheduledAt.getFullYear(), scheduledAt.getMonth(), 1));
+    setStep(3);
+  }, [professionalOptions, requestedBooking]);
+
   console.log("Selected Professional Object:", selectedPro);
   console.log("Availability Data:", selectedPro?.availability);
 
@@ -331,10 +379,99 @@ function BookingPageContent() {
   );
 
   useEffect(() => {
+    if (!selectedPro?.backendId) {
+      setBookedSlots([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const calendarStart = calendarDays[0];
+    const calendarEnd = calendarDays[calendarDays.length - 1];
+    if (!calendarStart || !calendarEnd) return;
+
+    const loadBookedSlots = async () => {
+      try {
+        const params = new URLSearchParams({
+          startDate: calendarStart.toISOString(),
+          endDate: new Date(
+            calendarEnd.getFullYear(),
+            calendarEnd.getMonth(),
+            calendarEnd.getDate(),
+            23,
+            59,
+            59,
+            999,
+          ).toISOString(),
+        });
+
+        if (requestedBookingId) {
+          params.set("excludeBookingId", requestedBookingId);
+        }
+
+        const response = await apiFetch(
+          `/api/professionals/${selectedPro.backendId}/availability?${params.toString()}`,
+        );
+        const data = await parseJsonResponse<{
+          bookedSlots?: BookedSlotRecord[];
+        }>(response);
+
+        if (!cancelled) {
+          setBookedSlots(data.bookedSlots || []);
+        }
+      } catch {
+        if (!cancelled) {
+          setBookedSlots([]);
+        }
+      }
+    };
+
+    void loadBookedSlots();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [calendarDays, requestedBookingId, selectedPro?.backendId]);
+
+  useEffect(() => {
     if (step === 4 && isAuthenticated) {
       void loadRazorpayScript();
     }
   }, [isAuthenticated, step]);
+
+  useEffect(() => {
+    if (!requestedBookingId || !isAuthenticated) return;
+
+    let cancelled = false;
+
+    const loadRequestedBooking = async () => {
+      try {
+        const response = await apiFetch(`/api/bookings/${requestedBookingId}`);
+        const booking = await parseJsonResponse<BookingDetailsResponse>(response);
+
+        if (cancelled) return;
+
+        setRequestedBooking(booking);
+        if (booking.serviceId) {
+          setSelectedService(booking.serviceId);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setBookingError(
+            error instanceof Error
+              ? error.message
+              : "Could not load the booking you are trying to reschedule.",
+          );
+        }
+      }
+    };
+
+    void loadRequestedBooking();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, requestedBookingId]);
 
   // ============================================================
   // CHECK IF DATE IS WORKING DAY - THIS IS THE KEY FUNCTION
@@ -380,6 +517,16 @@ function BookingPageContent() {
 
     console.log(`✅ ${dayName} has working hours:`, workingHours);
 
+    const dateAvailableSlots = getAvailableSlotsForDate(
+      date,
+      availability,
+      bookedSlots,
+    );
+    if (dateAvailableSlots.length === 0) {
+      console.log(`❌ ${formatLongDate(date)}: No remaining bookable slots`);
+      return false;
+    }
+
     // Check blocked dates
     if (availability.blockedDates) {
       const dateStr = date.toISOString().split("T")[0];
@@ -417,83 +564,12 @@ function BookingPageContent() {
       return [];
     }
 
-    const availability = selectedPro.availability;
-    const dayName = DAY_NAMES[selectedDate.getDay()].toLowerCase();
-    const workingHours = availability.workingHours?.[dayName];
-
-    console.log(`🕐 Getting slots for ${DAY_NAMES[selectedDate.getDay()]}:`);
-    console.log(`   Working hours:`, workingHours);
-
-    if (!workingHours || !hasWorkingWindow(workingHours)) {
-      console.log("No working hours found");
-      return [];
-    }
-
-    const slots: string[] = [];
-    const now = new Date();
-    const isToday = isSameDay(selectedDate, now);
-
-    // Use predefined slots if available
-    if (workingHours.slots && workingHours.slots.length > 0) {
-      console.log("Using predefined slots:", workingHours.slots);
-
-      workingHours.slots.forEach((slot) => {
-        const [startHour, startMin] = slot.start.split(":").map(Number);
-        const [endHour, endMin] = slot.end.split(":").map(Number);
-
-        let currentHour = startHour;
-        let currentMin = startMin;
-
-        while (
-          currentHour < endHour ||
-          (currentHour === endHour && currentMin < endMin)
-        ) {
-          const slotTime = formatTime(currentHour, currentMin);
-          const slotDate = new Date(selectedDate);
-          slotDate.setHours(currentHour, currentMin, 0, 0);
-
-          if (isToday && slotDate <= now) {
-            currentMin += 60;
-            if (currentMin >= 60) {
-              currentMin -= 60;
-              currentHour += 1;
-            }
-            continue;
-          }
-
-          slots.push(slotTime);
-          console.log(`   ✅ Added slot: ${slotTime}`);
-
-          currentMin += 60;
-          if (currentMin >= 60) {
-            currentMin -= 60;
-            currentHour += 1;
-          }
-        }
-      });
-    } else {
-      // Fallback: hourly slots
-      const [startHour] = workingHours.start.split(":").map(Number);
-      const [endHour] = workingHours.end.split(":").map(Number);
-
-      console.log(
-        `Generating hourly slots from ${workingHours.start} to ${workingHours.end}`,
-      );
-
-      for (let hour = startHour; hour < endHour; hour++) {
-        const slotTime = formatTime(hour, 0);
-        const slotDate = new Date(selectedDate);
-        slotDate.setHours(hour, 0, 0, 0);
-
-        if (isToday && slotDate <= now) continue;
-        slots.push(slotTime);
-        console.log(`   ✅ Added slot: ${slotTime}`);
-      }
-    }
-
-    console.log(`Total slots: ${slots.length}`);
-    return slots;
-  }, [selectedDate, selectedPro?.availability]);
+    return getAvailableSlotsForDate(
+      selectedDate,
+      selectedPro.availability,
+      bookedSlots,
+    );
+  }, [bookedSlots, selectedDate, selectedPro?.availability]);
 
   // ============================================================
   // HANDLERS
@@ -516,6 +592,35 @@ function BookingPageContent() {
         throw new Error(
           `${selectedPro.name} is not yet available for live booking. Please choose a professional with live availability.`,
         );
+      }
+
+      if (requestedBookingId) {
+        const rescheduleResponse = await apiFetch(
+          `/api/bookings/${requestedBookingId}/reschedule`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({
+              professionalId: selectedPro.backendId,
+              serviceId: selectedService,
+              scheduledAt: scheduledAt.toISOString(),
+            }),
+          },
+        );
+
+        const rescheduled = await parseJsonResponse<{
+          booking?: { _id?: string; scheduledAt?: string };
+        }>(rescheduleResponse);
+        const bookingId = rescheduled.booking?._id || requestedBookingId;
+
+        setBookingSuccess({
+          bookingId,
+          scheduledAt:
+            rescheduled.booking?.scheduledAt || scheduledAt.toISOString(),
+        });
+        router.push(
+          `/dashboard/client?bookingId=${encodeURIComponent(bookingId)}&status=rescheduled`,
+        );
+        return;
       }
 
       const response = await apiFetch("/api/bookings", {
@@ -1074,7 +1179,12 @@ function BookingPageContent() {
                     className="mt-6"
                     title="Success!"
                   >
-                    <p>Booking confirmed! ID: {bookingSuccess.bookingId}</p>
+                    <p>
+                      {requestedBookingId
+                        ? "Booking rescheduled!"
+                        : "Booking confirmed!"}{" "}
+                      ID: {bookingSuccess.bookingId}
+                    </p>
                   </StatusBanner>
                 ) : null}
 
@@ -1113,7 +1223,13 @@ function BookingPageContent() {
                     {submitting ? (
                       <LoaderCircle className="h-4 w-4 animate-spin" />
                     ) : null}
-                    {bookingSuccess ? "Confirmed" : "Confirm"}
+                    {bookingSuccess
+                      ? requestedBookingId
+                        ? "Rescheduled"
+                        : "Confirmed"
+                      : requestedBookingId
+                        ? "Reschedule Booking"
+                        : "Proceed to Pay"}
                   </button>
                   <button
                     onClick={() => setStep(3)}
@@ -1349,6 +1465,99 @@ function hasWorkingWindow(workingHours?: WorkingHours | null) {
   if (workingHours.slots?.length) return true;
 
   return Boolean(workingHours.start && workingHours.end);
+}
+
+function getAvailableSlotsForDate(
+  date: Date,
+  availability: Availability,
+  bookedSlots: BookedSlotRecord[],
+) {
+  const dayName = DAY_NAMES[date.getDay()].toLowerCase();
+  const workingHours = availability.workingHours?.[dayName];
+
+  console.log(`🕐 Getting slots for ${DAY_NAMES[date.getDay()]}:`);
+  console.log("   Working hours:", workingHours);
+
+  if (!workingHours || !hasWorkingWindow(workingHours)) {
+    console.log("No working hours found");
+    return [];
+  }
+
+  const slots: string[] = [];
+  const now = new Date();
+  const isToday = isSameDay(date, now);
+  const blockedSlotTimes = new Set(
+    bookedSlots
+      .map((slot) => new Date(slot.start))
+      .filter((slotDate) => !Number.isNaN(slotDate.getTime()) && isSameDay(slotDate, date))
+      .map((slotDate) => formatTime(slotDate.getHours(), slotDate.getMinutes())),
+  );
+
+  if (workingHours.slots && workingHours.slots.length > 0) {
+    console.log("Using predefined slots:", workingHours.slots);
+
+    workingHours.slots.forEach((slot) => {
+      const [startHour, startMin] = slot.start.split(":").map(Number);
+      const [endHour, endMin] = slot.end.split(":").map(Number);
+
+      let currentHour = startHour;
+      let currentMin = startMin;
+
+      while (
+        currentHour < endHour ||
+        (currentHour === endHour && currentMin < endMin)
+      ) {
+        const slotTime = formatTime(currentHour, currentMin);
+        const slotDate = new Date(date);
+        slotDate.setHours(currentHour, currentMin, 0, 0);
+
+        if (isToday && slotDate <= now) {
+          currentMin += 60;
+          if (currentMin >= 60) {
+            currentMin -= 60;
+            currentHour += 1;
+          }
+          continue;
+        }
+
+        if (!blockedSlotTimes.has(slotTime)) {
+          slots.push(slotTime);
+          console.log(`   ✅ Added slot: ${slotTime}`);
+        }
+
+        currentMin += 60;
+        if (currentMin >= 60) {
+          currentMin -= 60;
+          currentHour += 1;
+        }
+      }
+    });
+
+    console.log(`Total slots: ${slots.length}`);
+    return slots;
+  }
+
+  const [startHour] = workingHours.start.split(":").map(Number);
+  const [endHour] = workingHours.end.split(":").map(Number);
+
+  console.log(
+    `Generating hourly slots from ${workingHours.start} to ${workingHours.end}`,
+  );
+
+  for (let hour = startHour; hour < endHour; hour++) {
+    const slotTime = formatTime(hour, 0);
+    const slotDate = new Date(date);
+    slotDate.setHours(hour, 0, 0, 0);
+
+    if (isToday && slotDate <= now) continue;
+    if (blockedSlotTimes.has(slotTime)) continue;
+
+    slots.push(slotTime);
+    console.log(`   ✅ Added slot: ${slotTime}`);
+  }
+
+  console.log(`Total slots: ${slots.length}`);
+  return slots;
 }
 
 function parseDaysOffText(input = "") {
