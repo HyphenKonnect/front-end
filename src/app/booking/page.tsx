@@ -133,7 +133,9 @@ function BookingPageContent() {
   console.log(
     "Selected Professional Data:",
     selectedProfessional
-      ? directoryProfessionals.find((p) => p.id === selectedProfessional)
+      ? directoryProfessionals.find(
+          (p) => String(p.id) === selectedProfessional,
+        )
       : null,
   );
 
@@ -283,7 +285,8 @@ function BookingPageContent() {
 
   const selectedPro = useMemo(
     () =>
-      professionalOptions.find((p) => p.id === selectedProfessional) ?? null,
+      professionalOptions.find((p) => String(p.id) === selectedProfessional) ??
+      null,
     [professionalOptions, selectedProfessional],
   );
 
@@ -482,6 +485,9 @@ function BookingPageContent() {
 
       const data = await parseJsonResponse<BookingCreationResponse>(response);
       const bookingId = data.bookingId || data._id;
+      if (!bookingId) {
+        throw new Error("Booking was created but no booking ID was returned.");
+      }
       setBookingSuccess({
         bookingId,
         scheduledAt: data.scheduledAt || scheduledAt.toISOString(),
@@ -660,13 +666,13 @@ function BookingPageContent() {
                         "Professional availability:",
                         pro.availability,
                       );
-                      setSelectedProfessional(pro.id);
+                      setSelectedProfessional(String(pro.id));
                       setSelectedDate(null);
                       setSelectedTime("");
                       requestAnimationFrame(scrollToContinueButton);
                     }}
                     className={`overflow-hidden rounded-[24px] bg-white text-left transition-all ${
-                      selectedProfessional === pro.id
+                      selectedProfessional === String(pro.id)
                         ? "border-2 border-[#f56969] shadow-lg"
                         : "border border-[#e9e2df]"
                     }`}

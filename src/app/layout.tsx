@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import { AuthProvider } from "../components/auth/AuthProvider";
 import { Footer } from "../components/site/Footer";
@@ -43,7 +44,9 @@ export default function RootLayout({
       </head>
       <body className="antialiased bg-white text-[#2b2b2b]">
         <AuthProvider>
-          <RouteScrollReset />
+          <Suspense fallback={null}>
+            <RouteScrollReset />
+          </Suspense>
           <Navigation />
           <main>{children}</main>
           <Footer />
