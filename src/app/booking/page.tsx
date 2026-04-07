@@ -1,6 +1,13 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -21,7 +28,10 @@ import {
 import { StatusBanner } from "../../components/ui/StatusBanner";
 import { apiFetch, parseJsonResponse } from "../../lib/api";
 import { formatInr } from "../../lib/formatting";
-import { openRazorpayCheckout, type RazorpayOrderPayload } from "../../lib/razorpay";
+import {
+  openRazorpayCheckout,
+  type RazorpayOrderPayload,
+} from "../../lib/razorpay";
 import { useAuth } from "../../components/auth/AuthProvider";
 
 const MONTH_NAMES = [
@@ -77,24 +87,26 @@ type BookingDetailsResponse = {
       };
 };
 
-const localDirectory: DirectoryProfessional[] = professionals.map((professional) => ({
-  id: professional.id,
-  slug: professional.slug,
-  name: professional.name,
-  specialty: professional.specialty,
-  category: professional.category,
-  image: professional.image,
-  rating: professional.rating,
-  reviews: professional.reviews,
-  experience: professional.experience,
-  rate: professional.rate,
-  available: professional.available,
-  location: professional.location,
-  workingHours: professional.workingHours,
-  daysOff: professional.daysOff,
-  bookingMode: professional.bookingMode,
-  packageSessions: professional.packageSessions,
-}));
+const localDirectory: DirectoryProfessional[] = professionals.map(
+  (professional) => ({
+    id: professional.id,
+    slug: professional.slug,
+    name: professional.name,
+    specialty: professional.specialty,
+    category: professional.category,
+    image: professional.image,
+    rating: professional.rating,
+    reviews: professional.reviews,
+    experience: professional.experience,
+    rate: professional.rate,
+    available: professional.available,
+    location: professional.location,
+    workingHours: professional.workingHours,
+    daysOff: professional.daysOff,
+    bookingMode: professional.bookingMode,
+    packageSessions: professional.packageSessions,
+  }),
+);
 
 export default function BookingPage() {
   return (
@@ -116,22 +128,31 @@ function BookingPageContent() {
   const bookingIdFromQuery = searchParams.get("bookingId") || "";
   const [step, setStep] = useState(1);
   const [selectedService, setSelectedService] = useState(initialService);
-  const [selectedProfessional, setSelectedProfessional] = useState<string | number | null>(null);
+  const [selectedProfessional, setSelectedProfessional] = useState<
+    string | number | null
+  >(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("");
-  const [selectedSecondDate, setSelectedSecondDate] = useState<Date | null>(null);
+  const [selectedSecondDate, setSelectedSecondDate] = useState<Date | null>(
+    null,
+  );
   const [selectedSecondTime, setSelectedSecondTime] = useState("");
   const [activePackageSlot, setActivePackageSlot] = useState<1 | 2>(1);
   const [visibleMonth, setVisibleMonth] = useState(
     () => new Date(today.getFullYear(), today.getMonth(), 1),
   );
-  const [directory, setDirectory] = useState<DirectoryProfessional[]>(localDirectory);
+  const [directory, setDirectory] =
+    useState<DirectoryProfessional[]>(localDirectory);
   const [usingLiveData, setUsingLiveData] = useState(false);
-  const [availabilityData, setAvailabilityData] = useState<LiveAvailabilityResponse | null>(null);
+  const [availabilityData, setAvailabilityData] =
+    useState<LiveAvailabilityResponse | null>(null);
   const [loadingAvailability, setLoadingAvailability] = useState(false);
-  const [loadingRescheduleBooking, setLoadingRescheduleBooking] = useState(false);
+  const [loadingRescheduleBooking, setLoadingRescheduleBooking] =
+    useState(false);
   const [bookingError, setBookingError] = useState("");
-  const [paymentOrder, setPaymentOrder] = useState<RazorpayOrderPayload | null>(null);
+  const [paymentOrder, setPaymentOrder] = useState<RazorpayOrderPayload | null>(
+    null,
+  );
   const [paymentError, setPaymentError] = useState("");
   const [creatingPaymentOrder, setCreatingPaymentOrder] = useState(false);
   const [paymentSuccessMessage, setPaymentSuccessMessage] = useState("");
@@ -140,7 +161,8 @@ function BookingPageContent() {
     scheduledAt: string;
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [rescheduleBooking, setRescheduleBooking] = useState<BookingDetailsResponse | null>(null);
+  const [rescheduleBooking, setRescheduleBooking] =
+    useState<BookingDetailsResponse | null>(null);
   const [requestForm, setRequestForm] = useState({
     name: "",
     email: "",
@@ -150,6 +172,98 @@ function BookingPageContent() {
   const [requestSuccessMessage, setRequestSuccessMessage] = useState("");
 
   const isRescheduleMode = Boolean(bookingIdFromQuery);
+
+  // ============================================================
+  // NEW useEffect - Fetch professionals when service is selected
+  // ============================================================
+  useEffect(() => {
+    if (!selectedService || usingLiveData) return;
+
+    let cancelled = false;
+
+    const loadProfessionalsByService = async () => {
+      try {
+        const serviceMap: Record<string, string> = {
+          "mental-wellness": "therapist",
+          "medical-consultation": "doctor",
+          "legal-guidance": "legal",
+          "wellness-programs": "wellness",
+        };
+
+        const category = serviceMap[selectedService];
+        if (!category) return;
+
+        const response = await apiFetch(
+          `/api/professionals?category=${category}`,
+        );
+        const data =
+          await parseJsonResponse<BackendProfessionalRecord[]>(response);
+
+        if (!Array.isArray(data) || cancelled) return;
+        setDirectory(data.map(mapBackendProfessionalToDirectory));
+        setUsingLiveData(true);
+      } catch {
+        // Keep existing directory data
+      }
+    };
+
+    void loadProfessionalsByService();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedService, usingLiveData]);
+
+  // ============================================================
+  // UPDATED useEffect - Load professionals based on service
+  // ============================================================
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadProfessionals = async () => {
+      try {
+        // If service is selected, fetch only for that category
+        if (selectedService) {
+          const serviceMap: Record<string, string> = {
+            "mental-wellness": "therapist",
+            "medical-consultation": "doctor",
+            "legal-guidance": "legal",
+            "wellness-programs": "wellness",
+          };
+
+          const category = serviceMap[selectedService];
+          if (category) {
+            const response = await apiFetch(
+              `/api/professionals?category=${category}`,
+            );
+            const data =
+              await parseJsonResponse<BackendProfessionalRecord[]>(response);
+            if (!Array.isArray(data) || cancelled) return;
+            setDirectory(data.map(mapBackendProfessionalToDirectory));
+            setUsingLiveData(true);
+            return;
+          }
+        }
+
+        // Otherwise load all professionals
+        const response = await apiFetch("/api/professionals");
+        const data =
+          await parseJsonResponse<BackendProfessionalRecord[]>(response);
+        if (!Array.isArray(data) || cancelled) return;
+
+        setDirectory(data.map(mapBackendProfessionalToDirectory));
+        setUsingLiveData(true);
+      } catch {
+        // Keep local fallback data.
+      }
+    };
+
+    void loadProfessionals();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedService]);
 
   useEffect(() => {
     const nextService = searchParams.get("service") || "";
@@ -172,29 +286,6 @@ function BookingPageContent() {
     setStep(nextProfessionalSlug ? 3 : 2);
     setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
   }, [searchParams, today]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadProfessionals = async () => {
-      try {
-        const response = await apiFetch("/api/professionals");
-        const data = await parseJsonResponse<BackendProfessionalRecord[]>(response);
-        if (!Array.isArray(data) || cancelled) return;
-
-        setDirectory(data.map(mapBackendProfessionalToDirectory));
-        setUsingLiveData(true);
-      } catch {
-        // Keep local fallback data.
-      }
-    };
-
-    void loadProfessionals();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     if (!bookingIdFromQuery || authLoading || !isAuthenticated) return;
@@ -239,7 +330,9 @@ function BookingPageContent() {
         ? rescheduleBooking.professionalId
         : null;
     const professionalId =
-      professionalRecord?._id || professionalRecord?.id || rescheduleBooking.professionalId;
+      professionalRecord?._id ||
+      professionalRecord?.id ||
+      rescheduleBooking.professionalId;
     const matchedProfessional = directory.find(
       (item) =>
         item.backendId === professionalId ||
@@ -256,8 +349,14 @@ function BookingPageContent() {
     }
     if (!Number.isNaN(scheduledDate.getTime())) {
       setSelectedDate(scheduledDate);
-      setSelectedTime(formatMinutes(scheduledDate.getHours() * 60 + scheduledDate.getMinutes()));
-      setVisibleMonth(new Date(scheduledDate.getFullYear(), scheduledDate.getMonth(), 1));
+      setSelectedTime(
+        formatMinutes(
+          scheduledDate.getHours() * 60 + scheduledDate.getMinutes(),
+        ),
+      );
+      setVisibleMonth(
+        new Date(scheduledDate.getFullYear(), scheduledDate.getMonth(), 1),
+      );
     }
     setStep(3);
   }, [directory, rescheduleBooking]);
@@ -265,15 +364,20 @@ function BookingPageContent() {
   const professionalOptions = useMemo(() => {
     return directory.filter((item) => {
       if (!selectedService) return false;
-      if (selectedService === "mental-wellness") return item.category === "therapist";
-      if (selectedService === "medical-consultation") return item.category === "doctor";
-      if (selectedService === "legal-guidance") return item.category === "legal";
+      if (selectedService === "mental-wellness")
+        return item.category === "therapist";
+      if (selectedService === "medical-consultation")
+        return item.category === "doctor";
+      if (selectedService === "legal-guidance")
+        return item.category === "legal";
       return item.category === "wellness";
     });
   }, [directory, selectedService]);
 
   const selectedPro = useMemo(
-    () => professionalOptions.find((item) => item.id === selectedProfessional) ?? null,
+    () =>
+      professionalOptions.find((item) => item.id === selectedProfessional) ??
+      null,
     [professionalOptions, selectedProfessional],
   );
 
@@ -281,13 +385,19 @@ function BookingPageContent() {
     if (!selectedPro) return null;
     return (
       professionals.find(
-        (item) => item.slug === selectedPro.slug || item.name === selectedPro.name,
+        (item) =>
+          item.slug === selectedPro.slug || item.name === selectedPro.name,
       ) ?? null
     );
   }, [selectedPro]);
 
   useEffect(() => {
-    if (!initialProfessionalSlug || !professionalOptions.length || selectedProfessional) return;
+    if (
+      !initialProfessionalSlug ||
+      !professionalOptions.length ||
+      selectedProfessional
+    )
+      return;
     const matchedProfessional = professionalOptions.find(
       (item) => item.slug === initialProfessionalSlug,
     );
@@ -307,26 +417,38 @@ function BookingPageContent() {
       name: user?.name || "",
       email: user?.email || "",
       phone: user?.phone || "",
-      message: fallbackProfile?.category === "legal"
-        ? "I would like support with a legal consultation."
-        : "",
+      message:
+        fallbackProfile?.category === "legal"
+          ? "I would like support with a legal consultation."
+          : "",
     });
   }, [fallbackProfile?.category, user?.email, user?.name, user?.phone]);
 
-  const bookingMode = fallbackProfile?.bookingMode || selectedPro?.bookingMode || "standard";
+  const bookingMode =
+    fallbackProfile?.bookingMode || selectedPro?.bookingMode || "standard";
   const isRequestOnly = bookingMode === "request";
   const isPackageBooking = bookingMode === "package";
-    const calendarTargetDate =
-      isPackageBooking && activePackageSlot === 2 ? selectedSecondDate : selectedDate;
+  const calendarTargetDate =
+    isPackageBooking && activePackageSlot === 2
+      ? selectedSecondDate
+      : selectedDate;
   const calendarTargetTime =
-    isPackageBooking && activePackageSlot === 2 ? selectedSecondTime : selectedTime;
+    isPackageBooking && activePackageSlot === 2
+      ? selectedSecondTime
+      : selectedTime;
 
   const fallbackSchedule = useMemo(
-    () => (fallbackProfile ? buildFallbackAvailabilitySchedule(fallbackProfile) : null),
+    () =>
+      fallbackProfile
+        ? buildFallbackAvailabilitySchedule(fallbackProfile)
+        : null,
     [fallbackProfile],
   );
 
-  const calendarDays = useMemo(() => buildCalendarDays(visibleMonth), [visibleMonth]);
+  const calendarDays = useMemo(
+    () => buildCalendarDays(visibleMonth),
+    [visibleMonth],
+  );
 
   const availableSlots = useMemo(() => {
     if (!calendarTargetDate || !selectedPro) return [];
@@ -336,27 +458,48 @@ function BookingPageContent() {
     }
 
     if (fallbackProfile && fallbackSchedule) {
-      return getFallbackSlotsForDate(calendarTargetDate, fallbackProfile, fallbackSchedule);
+      return getFallbackSlotsForDate(
+        calendarTargetDate,
+        fallbackProfile,
+        fallbackSchedule,
+      );
     }
 
     return [];
-  }, [availabilityData, calendarTargetDate, fallbackProfile, fallbackSchedule, selectedPro]);
+  }, [
+    availabilityData,
+    calendarTargetDate,
+    fallbackProfile,
+    fallbackSchedule,
+    selectedPro,
+  ]);
 
   const canMoveToStepFour = isRequestOnly
     ? Boolean(requestForm.name && requestForm.email && requestForm.message)
     : isPackageBooking
-      ? Boolean(selectedDate && selectedTime && selectedSecondDate && selectedSecondTime)
+      ? Boolean(
+          selectedDate &&
+          selectedTime &&
+          selectedSecondDate &&
+          selectedSecondTime,
+        )
       : Boolean(selectedDate && selectedTime);
 
   const scrollToTimeSlots = () => {
     window.requestAnimationFrame(() => {
-      timeSlotsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      timeSlotsRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     });
   };
 
   const scrollToContinueActions = () => {
     window.setTimeout(() => {
-      continueButtonRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      continueButtonRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
     }, 120);
   };
 
@@ -369,7 +512,11 @@ function BookingPageContent() {
     let cancelled = false;
     setLoadingAvailability(true);
 
-    const monthStart = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
+    const monthStart = new Date(
+      visibleMonth.getFullYear(),
+      visibleMonth.getMonth(),
+      1,
+    );
     const monthEnd = new Date(
       visibleMonth.getFullYear(),
       visibleMonth.getMonth() + 1,
@@ -387,7 +534,8 @@ function BookingPageContent() {
           )}&endDate=${encodeURIComponent(monthEnd.toISOString())}`,
         );
 
-        const data = await parseJsonResponse<LiveAvailabilityResponse>(response);
+        const data =
+          await parseJsonResponse<LiveAvailabilityResponse>(response);
         if (cancelled) return;
         setAvailabilityData(data);
       } catch {
@@ -411,7 +559,11 @@ function BookingPageContent() {
   const refreshAvailability = async () => {
     if (!selectedPro?.backendId) return;
 
-    const monthStart = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
+    const monthStart = new Date(
+      visibleMonth.getFullYear(),
+      visibleMonth.getMonth(),
+      1,
+    );
     const monthEnd = new Date(
       visibleMonth.getFullYear(),
       visibleMonth.getMonth() + 1,
@@ -489,7 +641,9 @@ function BookingPageContent() {
       await refreshAvailability();
     } catch (error) {
       setBookingError(
-        error instanceof Error ? error.message : "We could not create the booking right now.",
+        error instanceof Error
+          ? error.message
+          : "We could not create the booking right now.",
       );
     } finally {
       setSubmitting(false);
@@ -586,15 +740,18 @@ function BookingPageContent() {
             invoiceNumber?: string;
           }>(verifyResponse);
 
-          const confirmResponse = await apiFetch(`/api/bookings/${order.bookingId}/confirm`, {
-            method: "PATCH",
-            body: JSON.stringify({
-              paymentId: response.razorpay_payment_id,
-              paymentMethod: verification.method || "upi",
-              orderId: response.razorpay_order_id,
-              signature: response.razorpay_signature,
-            }),
-          });
+          const confirmResponse = await apiFetch(
+            `/api/bookings/${order.bookingId}/confirm`,
+            {
+              method: "PATCH",
+              body: JSON.stringify({
+                paymentId: response.razorpay_payment_id,
+                paymentMethod: verification.method || "upi",
+                orderId: response.razorpay_order_id,
+                signature: response.razorpay_signature,
+              }),
+            },
+          );
           await parseJsonResponse(confirmResponse);
 
           setPaymentSuccessMessage(
@@ -613,7 +770,9 @@ function BookingPageContent() {
       });
     } catch (error) {
       setPaymentError(
-        error instanceof Error ? error.message : "We could not start Razorpay checkout.",
+        error instanceof Error
+          ? error.message
+          : "We could not start Razorpay checkout.",
       );
     }
   };
@@ -623,8 +782,8 @@ function BookingPageContent() {
 
     const params = new URLSearchParams({
       service:
-        serviceCatalog.find((service) => service.slug === selectedService)?.title ||
-        selectedService,
+        serviceCatalog.find((service) => service.slug === selectedService)
+          ?.title || selectedService,
       professional: selectedPro.name,
       mode: isPackageBooking ? "package-request" : "request",
     });
@@ -634,10 +793,16 @@ function BookingPageContent() {
     if (requestForm.phone) params.set("phone", requestForm.phone);
     if (requestForm.message) params.set("message", requestForm.message);
     if (selectedDate && selectedTime) {
-      params.set("slotOne", `${formatLongDate(selectedDate)} at ${selectedTime}`);
+      params.set(
+        "slotOne",
+        `${formatLongDate(selectedDate)} at ${selectedTime}`,
+      );
     }
     if (selectedSecondDate && selectedSecondTime) {
-      params.set("slotTwo", `${formatLongDate(selectedSecondDate)} at ${selectedSecondTime}`);
+      params.set(
+        "slotTwo",
+        `${formatLongDate(selectedSecondDate)} at ${selectedSecondTime}`,
+      );
     }
 
     setRequestSuccessMessage(
@@ -688,8 +853,12 @@ function BookingPageContent() {
       <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6 sm:py-12">
         {step === 1 ? (
           <>
-            <h2 className="mb-3 text-[36px] font-bold text-[#2b2b2b]">Select Your Service</h2>
-            <p className="mb-8 text-[16px] text-[#7e7e7e]">Choose the type of support you need.</p>
+            <h2 className="mb-3 text-[36px] font-bold text-[#2b2b2b]">
+              Select Your Service
+            </h2>
+            <p className="mb-8 text-[16px] text-[#7e7e7e]">
+              Choose the type of support you need.
+            </p>
             <div className="grid gap-6 md:grid-cols-2">
               {serviceCatalog.map((service) => (
                 <button
@@ -709,7 +878,9 @@ function BookingPageContent() {
                     setPaymentError("");
                     setPaymentSuccessMessage("");
                     setRequestSuccessMessage("");
-                    setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+                    setVisibleMonth(
+                      new Date(today.getFullYear(), today.getMonth(), 1),
+                    );
                     scrollToContinueActions();
                   }}
                   className={`rounded-[24px] bg-white p-8 text-left transition-all ${
@@ -728,13 +899,19 @@ function BookingPageContent() {
                     >
                       <service.icon
                         className={`h-7 w-7 ${
-                          selectedService === service.slug ? "text-white" : "text-[#f56969]"
+                          selectedService === service.slug
+                            ? "text-white"
+                            : "text-[#f56969]"
                         }`}
                       />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-[20px] font-bold text-[#2b2b2b]">{service.title}</h3>
-                      <p className="text-[14px] text-[#7e7e7e]">{service.tagline}</p>
+                      <h3 className="text-[20px] font-bold text-[#2b2b2b]">
+                        {service.title}
+                      </h3>
+                      <p className="text-[14px] text-[#7e7e7e]">
+                        {service.tagline}
+                      </p>
                     </div>
                     {selectedService === service.slug ? (
                       <CheckCircle className="h-6 w-6 text-[#f56969]" />
@@ -747,8 +924,12 @@ function BookingPageContent() {
         ) : null}
         {step === 2 ? (
           <>
-            <h2 className="mb-3 text-[36px] font-bold text-[#2b2b2b]">Choose Your Professional</h2>
-            <p className="mb-3 text-[16px] text-[#7e7e7e]">Select a professional who fits your needs.</p>
+            <h2 className="mb-3 text-[36px] font-bold text-[#2b2b2b]">
+              Choose Your Professional
+            </h2>
+            <p className="mb-3 text-[16px] text-[#7e7e7e]">
+              Select a professional who fits your needs.
+            </p>
             <p className="mb-8 text-sm text-[#7e7e7e]">
               {usingLiveData
                 ? "Using live professionals from the backend."
@@ -759,18 +940,20 @@ function BookingPageContent() {
                 <button
                   key={pro.id}
                   type="button"
-                    onClick={() => {
-                      setSelectedProfessional(pro.id);
-                      setSelectedDate(null);
-                      setSelectedTime("");
-                      setSelectedSecondDate(null);
-                      setSelectedSecondTime("");
-                      setActivePackageSlot(1);
-                      setBookingError("");
-                      setBookingSuccess(null);
-                      setRequestSuccessMessage("");
-                      setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
-                    }}
+                  onClick={() => {
+                    setSelectedProfessional(pro.id);
+                    setSelectedDate(null);
+                    setSelectedTime("");
+                    setSelectedSecondDate(null);
+                    setSelectedSecondTime("");
+                    setActivePackageSlot(1);
+                    setBookingError("");
+                    setBookingSuccess(null);
+                    setRequestSuccessMessage("");
+                    setVisibleMonth(
+                      new Date(today.getFullYear(), today.getMonth(), 1),
+                    );
+                  }}
                   className={`overflow-hidden rounded-[24px] bg-white text-left transition-all ${
                     selectedProfessional === pro.id
                       ? "border-2 border-[#f56969] shadow-lg"
@@ -789,28 +972,34 @@ function BookingPageContent() {
                   <div className="p-6 pt-5">
                     <div className="mb-3 flex items-start justify-between gap-3">
                       <div>
-                        <h3 className="text-[22px] font-bold text-[#2b2b2b]">{pro.name}</h3>
+                        <h3 className="text-[22px] font-bold text-[#2b2b2b]">
+                          {pro.name}
+                        </h3>
                         <p className="mt-2 text-[14px] font-medium text-[#f56969]">
                           {pro.specialty}
                         </p>
                       </div>
-                        <span className="rounded-full border border-[#ffd5cf] px-3 py-1 text-[12px] font-medium text-[#f56969]">
-                          {pro.bookingMode === "request"
-                            ? "On request"
-                            : pro.bookingMode === "package"
-                              ? "2-session package"
-                              : "Online"}
-                        </span>
+                      <span className="rounded-full border border-[#ffd5cf] px-3 py-1 text-[12px] font-medium text-[#f56969]">
+                        {pro.bookingMode === "request"
+                          ? "On request"
+                          : pro.bookingMode === "package"
+                            ? "2-session package"
+                            : "Online"}
+                      </span>
                     </div>
                     <div className="grid gap-2 text-[14px] text-[#6f6f6f]">
                       <div className="flex items-center justify-between gap-3">
                         <span>{pro.experience} of experience</span>
-                          <span className="font-semibold text-[#2b2b2b]">{pro.rate}</span>
+                        <span className="font-semibold text-[#2b2b2b]">
+                          {pro.rate}
+                        </span>
                       </div>
                       {pro.location ? (
                         <div className="flex items-center justify-between gap-3">
                           <span>{pro.location}</span>
-                          <span className="text-[#7e7e7e]">Verified profile</span>
+                          <span className="text-[#7e7e7e]">
+                            Verified profile
+                          </span>
                         </div>
                       ) : null}
                     </div>
@@ -835,7 +1024,7 @@ function BookingPageContent() {
               {isRequestOnly
                 ? "This lawyer is available on request. Share your details and our team will coordinate the session."
                 : isPackageBooking
-                  ? "Choose two preferred legal session slots based on the professional’s availability."
+                  ? "Choose two preferred legal session slots based on the professional's availability."
                   : "Choose a time that works for you."}
             </p>
             <div className="grid gap-6 xl:grid-cols-[1.1fr_0.95fr] xl:gap-8">
@@ -844,12 +1033,18 @@ function BookingPageContent() {
                   <MonthSelect
                     value={visibleMonth.getMonth()}
                     onChange={(month) =>
-                      setVisibleMonth(new Date(visibleMonth.getFullYear(), month, 1))
+                      setVisibleMonth(
+                        new Date(visibleMonth.getFullYear(), month, 1),
+                      )
                     }
                   />
                   <MonthSelect
                     value={visibleMonth.getFullYear()}
-                    onChange={(year) => setVisibleMonth(new Date(year, visibleMonth.getMonth(), 1))}
+                    onChange={(year) =>
+                      setVisibleMonth(
+                        new Date(year, visibleMonth.getMonth(), 1),
+                      )
+                    }
                     options={buildYearOptions(today.getFullYear())}
                   />
                   <div className="ml-auto flex overflow-hidden rounded-[14px] border border-[#ffd3d1]">
@@ -860,7 +1055,11 @@ function BookingPageContent() {
                       }
                       onClick={() =>
                         setVisibleMonth(
-                          new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1),
+                          new Date(
+                            visibleMonth.getFullYear(),
+                            visibleMonth.getMonth() - 1,
+                            1,
+                          ),
                         )
                       }
                     >
@@ -870,7 +1069,11 @@ function BookingPageContent() {
                     <CalendarNavButton
                       onClick={() =>
                         setVisibleMonth(
-                          new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1),
+                          new Date(
+                            visibleMonth.getFullYear(),
+                            visibleMonth.getMonth() + 1,
+                            1,
+                          ),
                         )
                       }
                     >
@@ -934,7 +1137,9 @@ function BookingPageContent() {
                               : "border-transparent bg-[#eceef4] text-[#c2c8d2]"
                         } ${!inCurrentMonth ? "opacity-70" : ""}`}
                       >
-                        <span className="text-[17px] sm:text-[18px]">{day.getDate()}</span>
+                        <span className="text-[17px] sm:text-[18px]">
+                          {day.getDate()}
+                        </span>
                         {selected ? (
                           <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-white/80" />
                         ) : null}
@@ -956,8 +1161,12 @@ function BookingPageContent() {
                         className="h-16 w-16 rounded-[20px] object-cover"
                       />
                       <div>
-                        <p className="text-sm font-medium text-[#f56969]">{selectedPro.specialty}</p>
-                        <h3 className="text-xl font-bold text-[#2b2b2b]">{selectedPro.name}</h3>
+                        <p className="text-sm font-medium text-[#f56969]">
+                          {selectedPro.specialty}
+                        </p>
+                        <h3 className="text-xl font-bold text-[#2b2b2b]">
+                          {selectedPro.name}
+                        </h3>
                         <p className="text-sm text-[#7e7e7e]">
                           {selectedPro.experience} · {selectedPro.rate}
                         </p>
@@ -972,10 +1181,12 @@ function BookingPageContent() {
                 >
                   <div className="mb-4 flex items-center justify-between gap-4">
                     <div>
-                      <h3 className="text-[22px] font-bold text-[#2b2b2b] sm:text-[28px]">Available Time Slots</h3>
+                      <h3 className="text-[22px] font-bold text-[#2b2b2b] sm:text-[28px]">
+                        Available Time Slots
+                      </h3>
                       <p className="text-sm leading-6 text-[#7e7e7e]">
                         {isRequestOnly
-                          ? "Tell us what you need and we’ll route it to the legal team."
+                          ? "Tell us what you need and we'll route it to the legal team."
                           : calendarTargetDate
                             ? formatLongDate(calendarTargetDate)
                             : "Select a date to see available session times."}
@@ -993,8 +1204,10 @@ function BookingPageContent() {
                     <div className="mb-6 flex flex-wrap gap-3">
                       {[1, 2].map((slotIndex) => {
                         const slotNumber = slotIndex as 1 | 2;
-                        const slotDate = slotNumber === 1 ? selectedDate : selectedSecondDate;
-                        const slotTime = slotNumber === 1 ? selectedTime : selectedSecondTime;
+                        const slotDate =
+                          slotNumber === 1 ? selectedDate : selectedSecondDate;
+                        const slotTime =
+                          slotNumber === 1 ? selectedTime : selectedSecondTime;
 
                         return (
                           <button
@@ -1008,10 +1221,14 @@ function BookingPageContent() {
                             }`}
                           >
                             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7e7e7e]">
-                              {slotIndex === 1 ? "First session" : "Second session"}
+                              {slotIndex === 1
+                                ? "First session"
+                                : "Second session"}
                             </p>
                             <p className="mt-2 text-sm font-medium text-[#2b2b2b]">
-                              {slotDate ? formatLongDate(slotDate) : "Select a date"}
+                              {slotDate
+                                ? formatLongDate(slotDate)
+                                : "Select a date"}
                             </p>
                             <p className="mt-1 text-sm text-[#7e7e7e]">
                               {slotTime || "Select a time"}
@@ -1028,7 +1245,10 @@ function BookingPageContent() {
                         label="Full Name *"
                         value={requestForm.name}
                         onChange={(value) =>
-                          setRequestForm((current) => ({ ...current, name: value }))
+                          setRequestForm((current) => ({
+                            ...current,
+                            name: value,
+                          }))
                         }
                       />
                       <RequestField
@@ -1036,14 +1256,20 @@ function BookingPageContent() {
                         type="email"
                         value={requestForm.email}
                         onChange={(value) =>
-                          setRequestForm((current) => ({ ...current, email: value }))
+                          setRequestForm((current) => ({
+                            ...current,
+                            email: value,
+                          }))
                         }
                       />
                       <RequestField
                         label="Phone"
                         value={requestForm.phone}
                         onChange={(value) =>
-                          setRequestForm((current) => ({ ...current, phone: value }))
+                          setRequestForm((current) => ({
+                            ...current,
+                            phone: value,
+                          }))
                         }
                       />
                       <div>
@@ -1084,7 +1310,7 @@ function BookingPageContent() {
                             calendarTargetTime === slot
                               ? "border-[#f56a6a] bg-[#f56a6a] text-white"
                               : "border-transparent bg-[#f4f0ee] text-[#1f2d3d] hover:bg-[#ffe9e7]"
-                            }`}
+                          }`}
                         >
                           <span className="text-[16px]">{slot}</span>
                         </button>
@@ -1143,7 +1369,9 @@ function BookingPageContent() {
                     <h3 className="text-[28px] font-bold text-[#2b2b2b]">
                       {selectedPro?.name || "Choose a professional"}
                     </h3>
-                    <p className="text-sm text-[#7e7e7e]">{selectedPro?.specialty}</p>
+                    <p className="text-sm text-[#7e7e7e]">
+                      {selectedPro?.specialty}
+                    </p>
                   </div>
                 </div>
 
@@ -1153,8 +1381,9 @@ function BookingPageContent() {
                       Service
                     </p>
                     <p className="mt-2 text-lg font-semibold text-[#2b2b2b]">
-                      {serviceCatalog.find((service) => service.slug === selectedService)?.title ||
-                        "Not selected"}
+                      {serviceCatalog.find(
+                        (service) => service.slug === selectedService,
+                      )?.title || "Not selected"}
                     </p>
                   </div>
                   <div className="rounded-[24px] bg-[#f7f5f4] p-5">
@@ -1194,7 +1423,9 @@ function BookingPageContent() {
                           Second session date
                         </p>
                         <p className="mt-2 text-lg font-semibold text-[#2b2b2b]">
-                          {selectedSecondDate ? formatLongDate(selectedSecondDate) : "Not selected"}
+                          {selectedSecondDate
+                            ? formatLongDate(selectedSecondDate)
+                            : "Not selected"}
                         </p>
                       </div>
                       <div className="rounded-[24px] bg-[#f7f5f4] p-5">
@@ -1222,7 +1453,9 @@ function BookingPageContent() {
 
               <div className="rounded-[32px] bg-white p-8 shadow-[0_18px_45px_rgba(29,25,22,0.06)]">
                 <h3 className="text-[28px] font-bold text-[#2b2b2b]">
-                  {isRequestOnly || isPackageBooking ? "Ready to send?" : "Ready to confirm?"}
+                  {isRequestOnly || isPackageBooking
+                    ? "Ready to send?"
+                    : "Ready to confirm?"}
                 </h3>
                 <p className="mt-3 text-[15px] leading-7 text-[#7e7e7e]">
                   {isRequestOnly
@@ -1236,35 +1469,59 @@ function BookingPageContent() {
 
                 {!isAuthenticated && !authLoading ? (
                   <div className="mt-6 rounded-[24px] border border-[#ffe0de] bg-[#fff4f3] p-5 text-sm text-[#694646]">
-                    Please <Link href="/login" className="font-semibold text-[#f56969] underline">log in</Link> as a client before confirming your booking.
+                    Please{" "}
+                    <Link
+                      href="/login"
+                      className="font-semibold text-[#f56969] underline"
+                    >
+                      log in
+                    </Link>{" "}
+                    as a client before confirming your booking.
                   </div>
                 ) : null}
 
                 {requestSuccessMessage ? (
-                  <StatusBanner tone="info" className="mt-6" title="Request ready">
+                  <StatusBanner
+                    tone="info"
+                    className="mt-6"
+                    title="Request ready"
+                  >
                     {requestSuccessMessage}
                   </StatusBanner>
                 ) : null}
 
                 {bookingError ? (
-                  <StatusBanner tone="error" className="mt-6" title="Booking issue">
+                  <StatusBanner
+                    tone="error"
+                    className="mt-6"
+                    title="Booking issue"
+                  >
                     {bookingError}
                   </StatusBanner>
                 ) : null}
 
                 {bookingSuccess ? (
-                  <StatusBanner tone="success" className="mt-6" title={
-                    isRescheduleMode ? "Booking rescheduled" : "Booking created"
-                  }>
+                  <StatusBanner
+                    tone="success"
+                    className="mt-6"
+                    title={
+                      isRescheduleMode
+                        ? "Booking rescheduled"
+                        : "Booking created"
+                    }
+                  >
                     <p>
-                      {isRescheduleMode ? "Booking rescheduled" : "Booking created"}
+                      {isRescheduleMode
+                        ? "Booking rescheduled"
+                        : "Booking created"}
                     </p>
                     <p className="mt-1">
                       Reference: {bookingSuccess.bookingId}
                     </p>
                     <p className="mt-1">
                       Scheduled for{" "}
-                      {formatLongDate(new Date(bookingSuccess.scheduledAt))} at {selectedTime}
+                      {formatLongDate(new Date(bookingSuccess.scheduledAt))} at{" "}
+                      {selectedTime}
                     </p>
                     {!isRescheduleMode ? (
                       <p className="mt-1">
@@ -1275,14 +1532,22 @@ function BookingPageContent() {
                 ) : null}
 
                 {paymentSuccessMessage ? (
-                  <StatusBanner tone="success" className="mt-6" title="Payment completed">
+                  <StatusBanner
+                    tone="success"
+                    className="mt-6"
+                    title="Payment completed"
+                  >
                     {paymentSuccessMessage}
                   </StatusBanner>
                 ) : null}
 
-                {!isRequestOnly && !isRescheduleMode && pricingBreakdown.basePrice ? (
+                {!isRequestOnly &&
+                !isRescheduleMode &&
+                pricingBreakdown.basePrice ? (
                   <div className="mt-6 rounded-[24px] bg-[#f7f5f4] p-5">
-                    <p className="text-sm font-semibold text-[#2b2b2b]">Payment summary</p>
+                    <p className="text-sm font-semibold text-[#2b2b2b]">
+                      Payment summary
+                    </p>
                     <div className="mt-4 space-y-3 text-sm text-[#6f6f6f]">
                       <div className="flex items-center justify-between">
                         <span>Session fee</span>
@@ -1297,7 +1562,9 @@ function BookingPageContent() {
                         </span>
                       </div>
                       <div className="flex items-center justify-between border-t border-[#e7dfdc] pt-3 text-base">
-                        <span className="font-semibold text-[#2b2b2b]">Total due</span>
+                        <span className="font-semibold text-[#2b2b2b]">
+                          Total due
+                        </span>
                         <span className="font-semibold text-[#2b2b2b]">
                           {formatInr(pricingBreakdown.total)}
                         </span>
@@ -1307,17 +1574,28 @@ function BookingPageContent() {
                 ) : null}
 
                 {paymentOrder ? (
-                  <StatusBanner tone="info" className="mt-6" title="Payment order initialized">
+                  <StatusBanner
+                    tone="info"
+                    className="mt-6"
+                    title="Payment order initialized"
+                  >
                     <p>Order ID: {paymentOrder.orderId}</p>
                     <p className="mt-1">
-                      Amount: {formatInr(paymentOrder.amount / 100)} {paymentOrder.currency}
+                      Amount: {formatInr(paymentOrder.amount / 100)}{" "}
+                      {paymentOrder.currency}
                     </p>
-                    <p className="mt-1">Your Razorpay order is ready for secure checkout.</p>
+                    <p className="mt-1">
+                      Your Razorpay order is ready for secure checkout.
+                    </p>
                   </StatusBanner>
                 ) : null}
 
                 {paymentError ? (
-                  <StatusBanner tone="error" className="mt-6" title="Payment setup unavailable">
+                  <StatusBanner
+                    tone="error"
+                    className="mt-6"
+                    title="Payment setup unavailable"
+                  >
                     {paymentError}
                   </StatusBanner>
                 ) : null}
@@ -1329,16 +1607,22 @@ function BookingPageContent() {
                       onClick={handleContinueLegalRequest}
                       className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] px-6 py-4 text-sm font-semibold text-white"
                     >
-                      {isPackageBooking ? "Continue To Package Request" : "Send Session Request"}
+                      {isPackageBooking
+                        ? "Continue To Package Request"
+                        : "Send Session Request"}
                     </button>
                   ) : (
                     <button
                       type="button"
                       onClick={() => void handleConfirmBooking()}
-                      disabled={submitting || Boolean(bookingSuccess) || authLoading}
+                      disabled={
+                        submitting || Boolean(bookingSuccess) || authLoading
+                      }
                       className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] px-6 py-4 text-sm font-semibold text-white disabled:opacity-50"
                     >
-                      {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+                      {submitting ? (
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                      ) : null}
                       {bookingSuccess
                         ? isRescheduleMode
                           ? "Reschedule Confirmed"
@@ -1356,14 +1640,19 @@ function BookingPageContent() {
                   >
                     Back To Date &amp; Time
                   </button>
-                  {!isRequestOnly && !isPackageBooking && !isRescheduleMode && bookingSuccess ? (
+                  {!isRequestOnly &&
+                  !isPackageBooking &&
+                  !isRescheduleMode &&
+                  bookingSuccess ? (
                     <button
                       type="button"
                       onClick={() => void handleStartPayment()}
                       disabled={creatingPaymentOrder}
                       className="rounded-full border border-[#ead9e8] px-6 py-4 text-sm font-medium text-[#2b2b2b] disabled:opacity-50"
                     >
-                      {creatingPaymentOrder ? "Preparing payment..." : "Pay with Razorpay"}
+                      {creatingPaymentOrder
+                        ? "Preparing payment..."
+                        : "Pay with Razorpay"}
                     </button>
                   ) : null}
                   {!isRequestOnly && !isPackageBooking && bookingSuccess ? (
@@ -1440,7 +1729,9 @@ function RequestField({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-sm font-medium text-[#2b2b2b]">{label}</label>
+      <label className="mb-2 block text-sm font-medium text-[#2b2b2b]">
+        {label}
+      </label>
       <input
         type={type}
         value={value}
@@ -1511,7 +1802,11 @@ function buildYearOptions(startYear: number) {
 }
 
 function buildCalendarDays(visibleMonth: Date) {
-  const firstDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
+  const firstDay = new Date(
+    visibleMonth.getFullYear(),
+    visibleMonth.getMonth(),
+    1,
+  );
   const calendarStart = new Date(firstDay);
   const normalizedWeekday = (firstDay.getDay() + 6) % 7;
   calendarStart.setDate(firstDay.getDate() - normalizedWeekday);
@@ -1539,13 +1834,19 @@ function isDateSelectable(
   }
 
   if (fallbackProfile && fallbackSchedule) {
-    return getFallbackSlotsForDate(date, fallbackProfile, fallbackSchedule).length > 0;
+    return (
+      getFallbackSlotsForDate(date, fallbackProfile, fallbackSchedule).length >
+      0
+    );
   }
 
   return professional ? true : false;
 }
 
-function getLiveSlotsForDate(date: Date, availabilityData: LiveAvailabilityResponse) {
+function getLiveSlotsForDate(
+  date: Date,
+  availabilityData: LiveAvailabilityResponse,
+) {
   const workingHours = availabilityData.availability?.workingHours;
   const blockedDates = availabilityData.availability?.blockedDates || [];
   const specialDates = availabilityData.availability?.specialDates || [];
@@ -1586,11 +1887,25 @@ function getLiveSlotsForDate(date: Date, availabilityData: LiveAvailabilityRespo
         },
       ];
 
-  return buildSlotsFromRanges(ranges, date, bookedSlots.map((slot) => new Date(slot.start)));
+  return buildSlotsFromRanges(
+    ranges,
+    date,
+    bookedSlots.map((slot) => new Date(slot.start)),
+  );
 }
 
-function buildFallbackAvailabilitySchedule(professional: ProfessionalProfile): AvailabilitySchedule {
-  const base: AvailabilitySchedule = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+function buildFallbackAvailabilitySchedule(
+  professional: ProfessionalProfile,
+): AvailabilitySchedule {
+  const base: AvailabilitySchedule = {
+    0: [],
+    1: [],
+    2: [],
+    3: [],
+    4: [],
+    5: [],
+    6: [],
+  };
   const allowedDays = new Set([0, 1, 2, 3, 4, 5, 6]);
 
   for (const day of parseDaysOff(professional.daysOff)) {
@@ -1661,12 +1976,19 @@ function buildSlotsFromRanges(
   const uniqueSlots = new Set<string>();
 
   for (const range of ranges) {
-    for (let minute = range.startMinutes; minute < range.endMinutes; minute += 60) {
+    for (
+      let minute = range.startMinutes;
+      minute < range.endMinutes;
+      minute += 60
+    ) {
       const slotDate = new Date(date);
       slotDate.setHours(Math.floor(minute / 60), minute % 60, 0, 0);
 
       if (isTodayDate && slotDate <= now) continue;
-      if (bookedStarts.some((booked) => booked.getTime() === slotDate.getTime())) continue;
+      if (
+        bookedStarts.some((booked) => booked.getTime() === slotDate.getTime())
+      )
+        continue;
 
       uniqueSlots.add(formatMinutes(minute));
     }
@@ -1709,9 +2031,10 @@ function parseDaysFromSegment(segment: string, allowedDays: Set<number>) {
   }
 
   const beforeColon = segment.split(":")[0]?.toLowerCase() || normalized;
-  const matches = DAY_NAMES.map((name, index) => ({ name: name.toLowerCase(), index })).filter(
-    (day) => beforeColon.includes(day.name),
-  );
+  const matches = DAY_NAMES.map((name, index) => ({
+    name: name.toLowerCase(),
+    index,
+  })).filter((day) => beforeColon.includes(day.name));
 
   if (matches.length >= 2 && beforeColon.includes("to")) {
     const start = matches[0].index;
