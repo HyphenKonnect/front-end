@@ -61,6 +61,7 @@ export function Navigation() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfessionalsOpen, setIsProfessionalsOpen] = useState(false);
+  const [expandedMobileDropdown, setExpandedMobileDropdown] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -70,7 +71,11 @@ export function Navigation() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
+    setExpandedMobileDropdown(false);
+  };
+
   const dashboardHref = user ? roleToDashboard(user.role) : "/login";
 
   const handleSignOut = () => {
@@ -227,7 +232,11 @@ export function Navigation() {
             className="p-2 text-[#2b2b2b] transition-colors hover:text-[#f56969] lg:hidden"
             aria-label="Toggle mobile menu"
           >
-            {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            {isMobileMenuOpen ? (
+              <X className="h-6 w-6" />
+            ) : (
+              <Menu className="h-6 w-6" />
+            )}
           </button>
         </div>
       </nav>
@@ -239,75 +248,111 @@ export function Navigation() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.2 }}
-            className="fixed left-0 right-0 top-[68px] z-40 max-h-[calc(100vh-68px)] overflow-y-auto bg-white shadow-lg lg:hidden"
+            className="fixed left-0 right-0 top-[68px] z-40 h-[calc(100vh-68px)] overflow-y-auto overflow-x-hidden bg-white shadow-lg lg:hidden"
           >
-            <div className="space-y-4 px-6 py-8 pb-24">
+            <div className="space-y-1 px-4 py-6 pb-32">
               {navItems.map((item) => (
                 <div key={item.label}>
-                  <Link
-                    href={item.href}
-                    onClick={closeMobileMenu}
-                    className="block py-2 text-lg font-medium text-[#2b2b2b] transition-colors hover:text-[#f56969]"
+                  <button
+                    onClick={() => {
+                      if (!item.hasDropdown) {
+                        closeMobileMenu();
+                      }
+                    }}
+                    className="w-full"
                   >
-                    {item.label}
-                  </Link>
-                  {item.hasDropdown && (
-                    <div className="ml-4 mt-2 space-y-2">
-                      {professionalCategories.map((category) => (
-                        <Link
-                          key={category.label}
-                          href={category.href}
-                          onClick={closeMobileMenu}
-                          className="flex items-center gap-3 rounded-[12px] p-2 transition-all hover:bg-[#f7f5f4]"
-                        >
-                          <category.icon className="h-4 w-4 text-[#f56969]" />
-                          <span className="text-sm text-[#2b2b2b]">
-                            {category.label}
-                          </span>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
+                    <Link
+                      href={item.href}
+                      onClick={(e) => {
+                        if (item.hasDropdown) {
+                          e.preventDefault();
+                          setExpandedMobileDropdown(
+                            expandedMobileDropdown ? false : true,
+                          );
+                        }
+                      }}
+                      className="flex items-center justify-between py-3 text-lg font-medium text-[#2b2b2b] transition-colors hover:text-[#f56969]"
+                    >
+                      <span>{item.label}</span>
+                      {item.hasDropdown && (
+                        <ChevronDown
+                          className={`h-5 w-5 transition-transform ${
+                            expandedMobileDropdown ? "rotate-180" : ""
+                          }`}
+                        />
+                      )}
+                    </Link>
+                  </button>
+
+                  <AnimatePresence>
+                    {item.hasDropdown && expandedMobileDropdown && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="space-y-2 border-l-2 border-[#ead9e8] py-2 pl-4">
+                          {professionalCategories.map((category) => (
+                            <Link
+                              key={category.label}
+                              href={category.href}
+                              onClick={closeMobileMenu}
+                              className="flex items-center gap-3 rounded-[12px] p-3 transition-all hover:bg-[#f7f5f4]"
+                            >
+                              <category.icon className="h-5 w-5 flex-shrink-0 text-[#f56969]" />
+                              <span className="text-sm font-medium text-[#2b2b2b]">
+                                {category.label}
+                              </span>
+                            </Link>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               ))}
 
-              <div className="space-y-3 border-t border-[#f1ece9] pt-5">
-                {isAuthenticated ? (
-                  <>
-                    <div className="flex justify-center">
-                      <NotificationBell />
-                    </div>
+              <div className="border-t border-[#f1ece9] pt-6">
+                <div className="space-y-3">
+                  {isAuthenticated ? (
+                    <>
+                      <div className="flex justify-center pb-2">
+                        <NotificationBell />
+                      </div>
+                      <Link
+                        href={dashboardHref}
+                        onClick={closeMobileMenu}
+                        className="block w-full rounded-full border-2 border-[#2b2b2b] px-6 py-3 text-center font-medium text-[#2b2b2b] transition-all hover:bg-[#2b2b2b] hover:text-white"
+                      >
+                        Dashboard
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={handleSignOut}
+                        className="w-full rounded-full border-2 border-[#ead9e8] px-6 py-3 text-center font-medium text-[#2b2b2b] transition-all hover:bg-[#2b2b2b] hover:text-white"
+                      >
+                        Log Out
+                      </button>
+                    </>
+                  ) : (
                     <Link
-                      href={dashboardHref}
+                      href="/login"
                       onClick={closeMobileMenu}
                       className="block w-full rounded-full border-2 border-[#2b2b2b] px-6 py-3 text-center font-medium text-[#2b2b2b] transition-all hover:bg-[#2b2b2b] hover:text-white"
                     >
-                      Dashboard
+                      Sign In
                     </Link>
-                    <button
-                      type="button"
-                      onClick={handleSignOut}
-                      className="block w-full rounded-full border-2 border-[#ead9e8] px-6 py-3 text-center font-medium text-[#2b2b2b]"
-                    >
-                      Log Out
-                    </button>
-                  </>
-                ) : (
+                  )}
                   <Link
-                    href="/login"
+                    href="/booking"
                     onClick={closeMobileMenu}
-                    className="block w-full rounded-full border-2 border-[#2b2b2b] px-6 py-3 text-center font-medium text-[#2b2b2b] transition-all hover:bg-[#2b2b2b] hover:text-white"
+                    className="block w-full rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] px-6 py-3 text-center font-medium text-white"
                   >
-                    Sign In
+                    Book Session
                   </Link>
-                )}
-                <Link
-                  href="/booking"
-                  onClick={closeMobileMenu}
-                  className="block w-full rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] px-6 py-3 text-center font-medium text-white"
-                >
-                  Book Session
-                </Link>
+                </div>
               </div>
             </div>
           </motion.div>
