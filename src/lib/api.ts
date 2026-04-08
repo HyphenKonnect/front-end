@@ -159,7 +159,9 @@ export async function parseJsonResponse<T>(response: Response): Promise<T> {
         typeof data === "object" &&
         ("error" in data || "message" in data) &&
         (data.error || data.message)) ||
-      fallbackText ||
+      (fallbackText && !["{}", "null"].includes(fallbackText.trim())
+        ? fallbackText
+        : "") ||
       "Something went wrong while talking to the server.";
     throw new Error(message);
   }
