@@ -401,7 +401,7 @@ export const professionals: ProfessionalProfile[] = [
     rating: 0,
     reviews: 0,
     experience: "3+ years",
-    rate: "Rs. 3000 / 2 sessions",
+    rate: "Rs. 4000 / 2 sessions",
     available: true,
     location: "Hyderabad",
     intro:
