@@ -23,7 +23,14 @@ export type SessionUser = {
   };
   availability?: {
     timezone?: string;
-    workingHours?: Record<string, { start?: string; end?: string }>;
+    workingHours?: Record<
+      string,
+      {
+        start?: string;
+        end?: string;
+        slots?: { start: string; end: string }[];
+      }
+    >;
     blockedDates?: string[];
     specialDates?: {
       date: string;
