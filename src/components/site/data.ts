@@ -697,7 +697,7 @@ export const professionals: ProfessionalProfile[] = [
     rating: 0,
     reviews: 0,
     experience: "Legal Intern",
-    rate: "On request",
+    rate: "Rs. 3000 / 2 sessions",
     available: true,
     location: "Bengaluru",
     intro:
