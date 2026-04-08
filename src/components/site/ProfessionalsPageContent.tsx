@@ -158,14 +158,6 @@ export function ProfessionalsPageContent({
             </div>
           </div>
 
-          <p className="mb-6 text-sm text-[#7e7e7e]">
-            {usingLiveData
-              ? filtered.length
-                ? "Showing live professionals from the platform."
-                : "Live data is available, but this view is using fallback profiles until category details fully match."
-              : "Showing local fallback data until the live professionals endpoint is accessible."}
-          </p>
-
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {displayedProfessionals.map((professional) => (
               <div
