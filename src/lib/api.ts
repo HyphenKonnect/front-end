@@ -10,6 +10,7 @@ export type SessionUser = {
   phone?: string;
   avatar?: string;
   onboardingComplete?: boolean;
+  emailVerified?: boolean;
   profile?: {
     bio?: string;
     specialisation?: string;

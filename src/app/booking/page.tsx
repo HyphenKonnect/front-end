@@ -157,6 +157,11 @@ function BookingPageContent() {
   const [requestedBooking, setRequestedBooking] =
     useState<BookingDetailsResponse | null>(null);
 
+  const emailVerificationPending =
+    isAuthenticated && user && user.role === "client" && user.emailVerified === false;
+  const emailVerificationReady =
+    isAuthenticated && user && user.role === "client" && user.emailVerified === true;
+
   const expectedCategory = useMemo(() => {
     if (selectedService === "mental-wellness") return "therapist";
     if (selectedService === "medical-consultation") return "doctor";
@@ -601,6 +606,10 @@ function BookingPageContent() {
     bookingId: string;
     scheduledAt: string;
   }) => {
+    if (emailVerificationPending) {
+      setBookingError("Please verify your email before booking.");
+      return;
+    }
     setPendingPayment({ bookingId, scheduledAt });
 
     const orderResponse = await apiFetch("/api/payments/create-order", {
@@ -682,6 +691,10 @@ function BookingPageContent() {
   };
 
   const handleConfirmBooking = async () => {
+    if (emailVerificationPending) {
+      setBookingError("Please verify your email before booking.");
+      return;
+    }
     if (!selectedPro || !selectedDate || !selectedTime) return;
 
     if (!isAuthenticated) {
@@ -1192,7 +1205,9 @@ function BookingPageContent() {
               </div>
 
               <div className="rounded-[32px] bg-white p-8 shadow-sm">
-                <h3 className="text-[28px] font-bold text-[#2b2b2b]">Ready?</h3>
+                <h3 className="text-[28px] font-bold text-[#2b2b2b]">
+                  {emailVerificationReady ? "Ready" : "Ready?"}
+                </h3>
 
                 {!isAuthenticated && !authLoading ? (
                   <div className="mt-6 rounded-[24px] border border-[#ffe0de] bg-[#fff4f3] p-5 text-sm text-[#694646]">
@@ -1205,6 +1220,18 @@ function BookingPageContent() {
                     </Link>{" "}
                     first.
                   </div>
+                ) : null}
+
+                {emailVerificationPending ? (
+                  <StatusBanner tone="warning" className="mt-6" title="Verification pending">
+                    Please verify your email to continue. We sent a verification link to your inbox.
+                  </StatusBanner>
+                ) : null}
+
+                {emailVerificationReady ? (
+                  <StatusBanner tone="success" className="mt-6" title="Account verified">
+                    Your account is ready for booking.
+                  </StatusBanner>
                 ) : null}
 
                 {bookingError ? (
@@ -1242,7 +1269,7 @@ function BookingPageContent() {
                   </div>
                 ) : null}
 
-                {pricingBreakdown.basePrice > 0 ? (
+                {pricingBreakdown.basePrice > 0 && !emailVerificationPending ? (
                   <div className="mt-6 rounded-[24px] bg-[#f7f5f4] p-5">
                     <p className="text-sm font-semibold text-[#2b2b2b]">
                       Payment
@@ -1271,21 +1298,28 @@ function BookingPageContent() {
                 <div className="mt-8 flex flex-col gap-4">
                   <button
                     onClick={() => void handleConfirmBooking()}
-                    disabled={submitting || !!bookingSuccess || authLoading}
+                    disabled={
+                      submitting ||
+                      !!bookingSuccess ||
+                      authLoading ||
+                      emailVerificationPending
+                    }
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] px-6 py-4 text-sm font-semibold text-white disabled:opacity-50"
                   >
                     {submitting ? (
                       <LoaderCircle className="h-4 w-4 animate-spin" />
                     ) : null}
-                    {bookingSuccess
-                      ? requestedBookingId
-                        ? "Rescheduled"
-                        : "Confirmed"
-                      : requestedBookingId
-                        ? "Reschedule Booking"
-                        : pendingPayment
-                          ? "Retry Payment"
-                          : "Proceed to Pay"}
+                    {emailVerificationPending
+                      ? "Verification pending"
+                      : bookingSuccess
+                        ? requestedBookingId
+                          ? "Rescheduled"
+                          : "Confirmed"
+                        : requestedBookingId
+                          ? "Reschedule Booking"
+                          : pendingPayment
+                            ? "Retry Payment"
+                            : "Proceed to Pay"}
                   </button>
                   <button
                     onClick={() => setStep(3)}
