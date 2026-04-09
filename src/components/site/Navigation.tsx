@@ -296,7 +296,7 @@ export function Navigation() {
                 href="/login"
                 className="font-medium text-[#2b2b2b] transition-colors hover:text-[#f56969]"
               >
-                Client Sign In
+                Sign In
               </Link>
             )}
             <Link
@@ -423,7 +423,7 @@ export function Navigation() {
                       onClick={closeMobileMenu}
                       className="block w-full rounded-full border-2 border-[#2b2b2b] px-6 py-3 text-center font-medium text-[#2b2b2b] transition-all hover:bg-[#2b2b2b] hover:text-white"
                     >
-                      Client Sign In
+                      Sign In
                     </Link>
                   )}
                   <Link
