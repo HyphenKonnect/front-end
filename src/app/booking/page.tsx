@@ -157,10 +157,12 @@ function BookingPageContent() {
   const [requestedBooking, setRequestedBooking] =
     useState<BookingDetailsResponse | null>(null);
 
-  const emailVerificationPending =
-    isAuthenticated && user && user.role === "client" && user.emailVerified === false;
-  const emailVerificationReady =
-    isAuthenticated && user && user.role === "client" && user.emailVerified === true;
+  const emailVerificationPending = Boolean(
+    isAuthenticated && user && user.role === "client" && user.emailVerified === false,
+  );
+  const emailVerificationReady = Boolean(
+    isAuthenticated && user && user.role === "client" && user.emailVerified === true,
+  );
 
   const expectedCategory = useMemo(() => {
     if (selectedService === "mental-wellness") return "therapist";
@@ -1223,7 +1225,7 @@ function BookingPageContent() {
                 ) : null}
 
                 {emailVerificationPending ? (
-                  <StatusBanner tone="warning" className="mt-6" title="Verification pending">
+                  <StatusBanner tone="info" className="mt-6" title="Verification pending">
                     Please verify your email to continue. We sent a verification link to your inbox.
                   </StatusBanner>
                 ) : null}
