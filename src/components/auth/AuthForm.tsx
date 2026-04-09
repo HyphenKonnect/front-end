@@ -205,6 +205,14 @@ export function AuthForm({
               />
             </label>
 
+            {mode === "login" && !isAdminAudience ? (
+              <div className="-mt-2 text-right">
+                <Link href="/forgot-password" className="text-sm font-medium text-[#f56969]">
+                  Forgot password?
+                </Link>
+              </div>
+            ) : null}
+
             {mode === "register" ? (
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-[#2b2b2b]">
