@@ -129,7 +129,7 @@ export function Navigation() {
         }`}
       >
         <div className="mx-auto flex max-w-[1440px] items-center justify-between px-6 py-3 lg:px-[120px]">
-          <Link href="/" className="flex items-center">
+          <Link href="/" className="flex items-center lg:-ml-4">
             <Image
               src="/brand-logo.png"
               alt="The Hyphen Konnect"
