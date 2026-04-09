@@ -111,12 +111,6 @@ function getMaxStartTime(minDurationMinutes = 30) {
   return addMinutesToTime("23:59", -minDurationMinutes) || "23:29";
 }
 
-function clampTime(value: string, min?: string, max?: string) {
-  let next = value;
-  if (min && next < min) next = min;
-  if (max && next > max) next = max;
-  return next;
-}
 
 function buildBlockedDateRange(start: string, end: string) {
   if (!start || !end) return [];
@@ -174,8 +168,8 @@ function CustomTimePicker({
   const minMinutes = min ? timeToMinutes(min) : null;
   const maxMinutes = max ? timeToMinutes(max) : null;
 
-  useEffect(() => {
-    if (!open) return;
+  const syncTempTime = (nextOpen: boolean) => {
+    if (!nextOpen) return;
     if (value) {
       const [hourText, minuteText] = value.split(":");
       setTempHour(hourText || "");
@@ -184,7 +178,7 @@ function CustomTimePicker({
       setTempHour("");
       setTempMinute("");
     }
-  }, [open, value]);
+  };
 
   const isCandidateValid = (hour: string, minute: string) => {
     const candidate = timeToMinutes(`${hour}:${minute}`);
@@ -209,7 +203,13 @@ function CustomTimePicker({
       <button
         type="button"
         disabled={disabled}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() =>
+          setOpen((current) => {
+            const nextOpen = !current;
+            syncTempTime(nextOpen);
+            return nextOpen;
+          })
+        }
         className="flex w-full items-center justify-between rounded-[14px] border border-[#ead9e8] bg-white px-3 py-2 text-sm text-[#2b2b2b] outline-none disabled:bg-[#f7f5f4] disabled:text-[#9b9b9b]"
       >
         <span>{value ? toTimeLabel(value) : placeholder}</span>

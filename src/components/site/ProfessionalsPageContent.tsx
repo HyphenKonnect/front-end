@@ -45,7 +45,6 @@ export function ProfessionalsPageContent({
   const [category, setCategory] = useState(initialCategory);
   const [searchTerm, setSearchTerm] = useState("");
   const [directory, setDirectory] = useState<DirectoryProfessional[]>(professionals);
-  const [usingLiveData, setUsingLiveData] = useState(false);
   const fallbackDirectory = useMemo<DirectoryProfessional[]>(
     () => professionals.map((professional) => ({
       id: professional.id,
@@ -82,7 +81,6 @@ export function ProfessionalsPageContent({
         if (!Array.isArray(data) || cancelled) return;
 
         setDirectory(data.map(mapBackendProfessionalToDirectory));
-        setUsingLiveData(true);
       } catch {
         // Keep local fallback data when the backend is unavailable.
       }

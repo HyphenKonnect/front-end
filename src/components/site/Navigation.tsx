@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -87,15 +87,15 @@ export function Navigation() {
     router.push("/");
   };
 
-  const profileInitials = useMemo(() => {
+  const profileInitials = (() => {
     if (!user?.name) return "U";
     const parts = user.name.trim().split(" ");
     const first = parts[0]?.[0] || "";
     const last = parts.length > 1 ? parts[parts.length - 1]?.[0] || "" : "";
     return `${first}${last}`.toUpperCase() || "U";
-  }, [user?.name]);
+  })();
 
-  const memberSince = useMemo(() => {
+  const memberSince = (() => {
     if (!user?.createdAt) return "";
     const created = new Date(user.createdAt);
     if (Number.isNaN(created.getTime())) return "";
@@ -104,7 +104,7 @@ export function Navigation() {
       month: "short",
       year: "numeric",
     });
-  }, [user?.createdAt]);
+  })();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

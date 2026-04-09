@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Send } from "lucide-react";
-import { contactCards } from "../../components/site/data";
 import {
   GradientCta,
   PageHero,
@@ -184,7 +183,7 @@ export default function ContactPage() {
                   Email Us
                 </h3>
                 <p className="mb-4 text-[15px] text-[#7e7e7e]">
-                  Send us an email and we'll respond within 24 hours.
+                  Send us an email and we will respond within 24 hours.
                 </p>
                 <a
                   href="mailto:support@thehyphenkonnect.com"

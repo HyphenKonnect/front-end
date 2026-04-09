@@ -16,10 +16,10 @@ export default function VerifyEmailContent() {
 
   const safeToken = useMemo(() => token.trim(), [token]);
 
+  const hasToken = Boolean(safeToken);
+
   useEffect(() => {
-    if (!safeToken) {
-      setState("error");
-      setMessage("Verification token is missing.");
+    if (!hasToken) {
       return;
     }
 
@@ -49,7 +49,12 @@ export default function VerifyEmailContent() {
     return () => {
       cancelled = true;
     };
-  }, [safeToken]);
+  }, [hasToken, safeToken]);
+
+  const displayState = hasToken ? state : "error";
+  const displayMessage = hasToken
+    ? message
+    : "Verification token is missing.";
 
   return (
     <div className="min-h-screen bg-[#f7f5f4] px-6 py-16">
@@ -59,21 +64,21 @@ export default function VerifyEmailContent() {
           We are verifying your email address.
         </p>
 
-        {state === "verifying" ? (
+        {displayState === "verifying" ? (
           <StatusBanner tone="info" className="mt-6" title="Verifying">
             Please wait while we confirm your email.
           </StatusBanner>
         ) : null}
 
-        {state === "success" ? (
+        {displayState === "success" ? (
           <StatusBanner tone="success" className="mt-6" title="Verified">
-            {message}
+            {displayMessage}
           </StatusBanner>
         ) : null}
 
-        {state === "error" ? (
+        {displayState === "error" ? (
           <StatusBanner tone="error" className="mt-6" title="Verification failed">
-            {message}
+            {displayMessage}
           </StatusBanner>
         ) : null}
 

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { aboutValues } from "../../components/site/data";
 import {
   GradientCta,
@@ -98,10 +99,12 @@ export default function AboutPage() {
                 {/* Image Section */}
                 <div className="relative h-96 w-full overflow-hidden bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6]">
                   {member.image ? (
-                    <img
+                    <Image
                       src={member.image}
                       alt={member.name}
-                      className="h-full w-full object-cover"
+                      fill
+                      sizes="(min-width: 1024px) 500px, (min-width: 768px) 45vw, 90vw"
+                      className="object-cover"
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center">
