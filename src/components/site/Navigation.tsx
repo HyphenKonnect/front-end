@@ -275,7 +275,7 @@ export function Navigation() {
                           href={dashboardHref}
                           className="mt-2 flex items-center justify-between rounded-[14px] px-3 py-2 text-sm font-medium text-[#2b2b2b] transition hover:bg-[#f7f5f4]"
                         >
-                          Dashboard
+                          My Dashboard
                           <span className="text-[#f56969]">→</span>
                         </Link>
                       </div>
