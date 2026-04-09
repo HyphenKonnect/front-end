@@ -20,13 +20,14 @@ const professionalLinks = [
   { label: "Medical Doctors", href: "/professionals?category=doctor" },
   { label: "Legal Advisors", href: "/professionals?category=legal" },
   { label: "Wellness Coaches", href: "/professionals?category=wellness" },
-  { label: "Join as Professional", href: "/contact" },
+  { label: "Professional Login", href: "/professional-login" },
+  { label: "Join as Professional", href: "/join-professional" },
 ];
 
 const quickLinks = [
   { label: "Book a Session", href: "/booking" },
   { label: "Client Portal", href: "/dashboard/client" },
-  { label: "Professional Portal", href: "/dashboard/professional" },
+  { label: "Professional Login", href: "/professional-login" },
   { label: "Admin Portal", href: "/dashboard/admin" },
   { label: "FAQ", href: "/resources" },
 ];

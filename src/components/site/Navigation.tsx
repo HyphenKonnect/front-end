@@ -167,7 +167,7 @@ export function Navigation() {
                               ))}
                             </div>
                             <Link
-                              href="/contact"
+                              href="/join-professional"
                               className="flex items-center gap-3 rounded-[16px] bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] p-3 text-white transition-all hover:shadow-lg"
                             >
                               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20">
@@ -215,7 +215,7 @@ export function Navigation() {
                 href="/login"
                 className="font-medium text-[#2b2b2b] transition-colors hover:text-[#f56969]"
               >
-                Sign In
+                Client Sign In
               </Link>
             )}
             <Link
@@ -342,7 +342,7 @@ export function Navigation() {
                       onClick={closeMobileMenu}
                       className="block w-full rounded-full border-2 border-[#2b2b2b] px-6 py-3 text-center font-medium text-[#2b2b2b] transition-all hover:bg-[#2b2b2b] hover:text-white"
                     >
-                      Sign In
+                      Client Sign In
                     </Link>
                   )}
                   <Link

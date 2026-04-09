@@ -8,17 +8,12 @@ import type { SessionUser } from "../../lib/api";
 import { useAuth } from "./AuthProvider";
 import { roleToDashboard } from "./ProtectedRoute";
 
-const registrationRoles: { label: string; value: SessionUser["role"] }[] = [
-  { label: "Client", value: "client" },
-  { label: "Professional", value: "professional" },
-];
-
 export function AuthForm({
   mode,
   audience = "general",
 }: {
   mode: "login" | "register";
-  audience?: "general" | "admin";
+  audience?: "general" | "admin" | "professional";
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -34,16 +29,21 @@ export function AuthForm({
 
   const next = searchParams.get("next");
   const isAdminAudience = audience === "admin";
+  const isProfessionalAudience = audience === "professional";
   const authTitle =
     mode === "login"
       ? isAdminAudience
         ? "Admin control access"
+        : isProfessionalAudience
+          ? "Welcome back, professional."
         : "Welcome back to your care workspace."
       : "Create your Hyphen Konnect account.";
   const authEyebrow =
     mode === "login"
       ? isAdminAudience
         ? "Admin Sign In"
+        : isProfessionalAudience
+          ? "Professional Sign In"
         : "Sign In"
       : "Register";
 
@@ -60,18 +60,24 @@ export function AuthForm({
               name: form.name,
               email: form.email,
               password: form.password,
-              role: form.role,
+              role: "client",
             });
 
       if (mode === "login" && isAdminAudience && user.role !== "admin") {
         signOut();
-        setError("This sign-in page is only for admin access. Clients and professionals should use /login.");
+        setError("This sign-in page is only for admin access.");
         return;
       }
 
-      if (mode === "login" && !isAdminAudience && user.role === "admin") {
+      if (mode === "login" && isProfessionalAudience && user.role !== "professional") {
         signOut();
-        setError("Admin accounts should sign in from /admin.");
+        setError("This sign-in page is only for professional accounts.");
+        return;
+      }
+
+      if (mode === "login" && !isAdminAudience && !isProfessionalAudience && user.role !== "client") {
+        signOut();
+        setError("This sign-in page is only for client accounts.");
         return;
       }
 
@@ -100,7 +106,9 @@ export function AuthForm({
           <p className="max-w-[520px] text-base leading-7 text-white/75">
             {isAdminAudience
               ? "Use the dedicated admin entry point to manage users, bookings, finance visibility, and platform operations."
-              : "Start with secure authentication, role-based dashboards, and the foundations we need for bookings, payments, video sessions, and messaging."}
+              : isProfessionalAudience
+                ? "Professionals sign in here to manage schedules, sessions, and availability once approved by our operations team."
+                : "Start with secure authentication, client dashboards, and the foundations we need for bookings, payments, video sessions, and messaging."}
           </p>
 
           <div className="mt-10 grid gap-4">
@@ -111,11 +119,17 @@ export function AuthForm({
                     "Use service assignment and approval tools to manage professionals.",
                     "Keep operational access separate from client and professional sign-in.",
                   ]
-                : [
-                    "Clients can view appointments, payments, and care updates.",
-                    "Professionals get scheduling, availability, and earnings visibility.",
-                    "Admin access is available through a separate secure sign-in page.",
-                  ]
+                : isProfessionalAudience
+                  ? [
+                      "Professionals manage availability and bookings from one hub.",
+                      "Operations onboarding happens through a separate application flow.",
+                      "Clients use a separate sign-in to book sessions.",
+                    ]
+                  : [
+                      "Clients can view appointments, payments, and care updates.",
+                      "Client accounts are verified before booking.",
+                      "Admin access is available through a separate secure sign-in page.",
+                    ]
             ).map((item) => (
               <div
                 key={item}
@@ -141,8 +155,10 @@ export function AuthForm({
             {mode === "login"
               ? isAdminAudience
                 ? "This page is reserved for admin accounts only."
-                : "Use your client or professional account to continue."
-              : "Choose the role you want to start with. Admin access should be issued separately, not through the public form."}
+                : isProfessionalAudience
+                  ? "Sign in with your professional account once our team has approved it."
+                  : "This sign-in is for clients only."
+              : "Client accounts are created here. Professional onboarding happens through a separate application."}
           </p>
 
           <form className="space-y-5" onSubmit={handleSubmit}>
@@ -214,27 +230,9 @@ export function AuthForm({
             ) : null}
 
             {mode === "register" ? (
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium text-[#2b2b2b]">
-                  Account type
-                </span>
-                <select
-                  value={form.role}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      role: event.target.value as SessionUser["role"],
-                    }))
-                  }
-                  className="w-full rounded-[18px] border border-[#ead9e8] bg-[#fcfbfb] px-4 py-3 outline-none transition focus:border-[#f56969]"
-                >
-                  {registrationRoles.map((role) => (
-                    <option key={role.value} value={role.value}>
-                      {role.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <p className="text-sm text-[#7e7e7e]">
+                Client accounts are created here. Professionals should apply to join.
+              </p>
             ) : null}
 
             {error ? (
@@ -260,17 +258,32 @@ export function AuthForm({
           <p className="mt-6 text-sm text-[#7e7e7e]">
             {mode === "login" ? (
               <>
-                {isAdminAudience ? "Need the regular sign-in page?" : "Need an account?"}{" "}
-                <Link
-                  href={isAdminAudience ? "/login" : "/register"}
-                  className="font-medium text-[#f56969]"
-                >
-                  {isAdminAudience ? "Go to client/professional sign in" : "Register here"}
-                </Link>
+                {isAdminAudience ? (
+                  <>
+                    Need the client sign-in?{" "}
+                    <Link href="/login" className="font-medium text-[#f56969]">
+                      Go to client sign in
+                    </Link>
+                  </>
+                ) : isProfessionalAudience ? (
+                  <>
+                    Want to join as a professional?{" "}
+                    <Link href="/join-professional" className="font-medium text-[#f56969]">
+                      Apply here
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    Need an account?{" "}
+                    <Link href="/register" className="font-medium text-[#f56969]">
+                      Register here
+                    </Link>
+                  </>
+                )}
               </>
             ) : (
               <>
-                Already have an account?{" "}
+                Already have a client account?{" "}
                 <Link href="/login" className="font-medium text-[#f56969]">
                   Sign in here
                 </Link>
