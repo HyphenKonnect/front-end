@@ -11,6 +11,7 @@ export type SessionUser = {
   avatar?: string;
   onboardingComplete?: boolean;
   emailVerified?: boolean;
+  createdAt?: string;
   profile?: {
     bio?: string;
     specialisation?: string;

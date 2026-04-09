@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -62,6 +62,8 @@ export function Navigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfessionalsOpen, setIsProfessionalsOpen] = useState(false);
   const [expandedMobileDropdown, setExpandedMobileDropdown] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -81,8 +83,43 @@ export function Navigation() {
   const handleSignOut = () => {
     signOut();
     closeMobileMenu();
+    setIsProfileMenuOpen(false);
     router.push("/");
   };
+
+  const profileInitials = useMemo(() => {
+    if (!user?.name) return "U";
+    const parts = user.name.trim().split(" ");
+    const first = parts[0]?.[0] || "";
+    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] || "" : "";
+    return `${first}${last}`.toUpperCase() || "U";
+  }, [user?.name]);
+
+  const memberSince = useMemo(() => {
+    if (!user?.createdAt) return "";
+    const created = new Date(user.createdAt);
+    if (Number.isNaN(created.getTime())) return "";
+    return created.toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }, [user?.createdAt]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!profileMenuRef.current) return;
+      if (!profileMenuRef.current.contains(event.target as Node)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+
+    if (isProfileMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isProfileMenuOpen]);
 
   return (
     <>
@@ -196,19 +233,63 @@ export function Navigation() {
             {isAuthenticated ? (
               <>
                 <NotificationBell />
-                <Link
-                  href={dashboardHref}
-                  className="font-medium text-[#2b2b2b] transition-colors hover:text-[#f56969]"
-                >
-                  Dashboard
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  className="font-medium text-[#2b2b2b] transition-colors hover:text-[#f56969]"
-                >
-                  Log Out
-                </button>
+                <div ref={profileMenuRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsProfileMenuOpen((open) => !open)}
+                    className="flex items-center gap-2 rounded-full border border-[#f1ece9] bg-white px-3 py-1.5 text-sm font-medium text-[#2b2b2b] shadow-sm transition hover:border-[#f56969]"
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#ffe6b4] text-sm font-semibold text-[#2b2b2b]">
+                      {profileInitials}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-[#7e7e7e]" />
+                  </button>
+
+                  {isProfileMenuOpen ? (
+                    <div className="absolute right-0 top-full mt-3 w-[280px] rounded-[24px] border border-[#f1ece9] bg-white p-4 shadow-xl">
+                      <div className="flex items-center gap-3 border-b border-[#f3e8e2] pb-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#ffe6b4] text-lg font-semibold text-[#2b2b2b]">
+                          {profileInitials}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-[#2b2b2b]">
+                            {user?.name || "Hyphen Konnect"}
+                          </p>
+                          {memberSince ? (
+                            <p className="text-xs text-[#7e7e7e]">
+                              Member since {memberSince}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="py-3">
+                        <Link
+                          href={dashboardHref}
+                          className="flex items-center justify-between rounded-[14px] px-3 py-2 text-sm font-medium text-[#2b2b2b] transition hover:bg-[#f7f5f4]"
+                        >
+                          Your Profile
+                          <span className="text-[#f56969]">→</span>
+                        </Link>
+                        <Link
+                          href={dashboardHref}
+                          className="mt-2 flex items-center justify-between rounded-[14px] px-3 py-2 text-sm font-medium text-[#2b2b2b] transition hover:bg-[#f7f5f4]"
+                        >
+                          Dashboard
+                          <span className="text-[#f56969]">→</span>
+                        </Link>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSignOut}
+                        className="flex w-full items-center gap-2 rounded-[14px] border border-[#f1ece9] px-3 py-2 text-sm font-medium text-[#2b2b2b] transition hover:bg-[#f7f5f4]"
+                      >
+                        Log out
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </>
             ) : (
               <Link
