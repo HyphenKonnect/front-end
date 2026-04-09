@@ -128,7 +128,7 @@ export function Navigation() {
           isScrolled ? "bg-white/95 shadow-md backdrop-blur-sm" : "bg-white"
         }`}
       >
-        <div className="mx-auto flex max-w-[1440px] items-center justify-between px-5 py-3 lg:px-[120px]">
+        <div className="mx-auto flex max-w-[1440px] items-center justify-between px-6 py-3 lg:px-[120px]">
           <Link href="/" className="flex items-center">
             <Image
               src="/brand-logo.png"
