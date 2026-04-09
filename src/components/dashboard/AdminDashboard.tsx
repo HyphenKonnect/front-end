@@ -117,6 +117,13 @@ export function AdminDashboard() {
     yearsExperience: "",
     sessionPrice: "",
   });
+  const [creatingBooking, setCreatingBooking] = useState(false);
+  const [manualBooking, setManualBooking] = useState({
+    clientId: "",
+    professionalId: "",
+    scheduledAt: "",
+    sendPaymentRequest: true,
+  });
 
   useEffect(() => {
     let ignore = false;
@@ -322,8 +329,45 @@ export function AdminDashboard() {
     }
   };
 
+  const handleCreateManualBooking = async () => {
+    try {
+      setCreatingBooking(true);
+      setError(null);
+      const response = await apiFetch("/api/admin/bookings/manual", {
+        method: "POST",
+        body: JSON.stringify({
+          clientId: manualBooking.clientId,
+          professionalId: manualBooking.professionalId,
+          scheduledAt: manualBooking.scheduledAt,
+          sendPaymentRequest: manualBooking.sendPaymentRequest,
+        }),
+      });
+      await parseJsonResponse(response);
+      await refreshBookings();
+      setSuccessMessage("Manual booking created and payment request sent.");
+      setManualBooking({
+        clientId: "",
+        professionalId: "",
+        scheduledAt: "",
+        sendPaymentRequest: true,
+      });
+    } catch (createError) {
+      setError(
+        createError instanceof Error
+          ? createError.message
+          : "We could not create the booking right now.",
+      );
+    } finally {
+      setCreatingBooking(false);
+    }
+  };
+
   const professionalUsers = useMemo(
     () => users.filter((user) => user.role === "professional"),
+    [users],
+  );
+  const clientUsers = useMemo(
+    () => users.filter((user) => user.role === "client"),
     [users],
   );
 
@@ -429,7 +473,7 @@ export function AdminDashboard() {
               View public directory
             </Link>
             <Link
-              href="/booking"
+              href="/dashboard/admin#manual-booking"
               className="rounded-full bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] px-5 py-2.5 text-sm font-medium text-white"
             >
               Create manual booking
@@ -620,6 +664,83 @@ export function AdminDashboard() {
 
           <DashboardCard title="Admin actions" className="lg:col-span-4" eyebrow="Playbook">
             <div className="space-y-4">
+              <div id="manual-booking" className="rounded-[22px] bg-[#f7f5f4] p-5">
+                <IndianRupee className="h-5 w-5 text-[#f56969]" />
+                <p className="mt-3 font-semibold text-[#2b2b2b]">Create manual booking</p>
+                <div className="mt-4 space-y-3">
+                  <select
+                    value={manualBooking.clientId}
+                    onChange={(event) =>
+                      setManualBooking((current) => ({
+                        ...current,
+                        clientId: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-[16px] border border-[#ead9e8] bg-white px-4 py-3 text-sm text-[#2b2b2b] outline-none"
+                  >
+                    <option value="">Select client</option>
+                    {clientUsers.map((client) => (
+                      <option key={client._id} value={client._id}>
+                        {client.name} ({client.email})
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={manualBooking.professionalId}
+                    onChange={(event) =>
+                      setManualBooking((current) => ({
+                        ...current,
+                        professionalId: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-[16px] border border-[#ead9e8] bg-white px-4 py-3 text-sm text-[#2b2b2b] outline-none"
+                  >
+                    <option value="">Select professional</option>
+                    {professionalUsers.map((professional) => (
+                      <option key={professional._id} value={professional._id}>
+                        {professional.name} ({professional.email})
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="datetime-local"
+                    value={manualBooking.scheduledAt}
+                    onChange={(event) =>
+                      setManualBooking((current) => ({
+                        ...current,
+                        scheduledAt: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-[16px] border border-[#ead9e8] bg-white px-4 py-3 text-sm text-[#2b2b2b] outline-none"
+                  />
+                  <label className="flex items-center gap-2 text-sm text-[#7e7e7e]">
+                    <input
+                      type="checkbox"
+                      checked={manualBooking.sendPaymentRequest}
+                      onChange={(event) =>
+                        setManualBooking((current) => ({
+                          ...current,
+                          sendPaymentRequest: event.target.checked,
+                        }))
+                      }
+                    />
+                    Send payment request email
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => void handleCreateManualBooking()}
+                    disabled={
+                      creatingBooking ||
+                      !manualBooking.clientId ||
+                      !manualBooking.professionalId ||
+                      !manualBooking.scheduledAt
+                    }
+                    className="w-full rounded-full bg-[#2b2b2b] px-4 py-3 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    {creatingBooking ? "Creating..." : "Create booking"}
+                  </button>
+                </div>
+              </div>
               <div className="rounded-[22px] bg-[#f7f5f4] p-5">
                 <UserPlus className="h-5 w-5 text-[#f56969]" />
                 <p className="mt-3 font-semibold text-[#2b2b2b]">Add new employee</p>
