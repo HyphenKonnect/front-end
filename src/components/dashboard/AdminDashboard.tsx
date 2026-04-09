@@ -107,6 +107,18 @@ function isWithinDateRange(value: string, from: string, to: string) {
   return true;
 }
 
+function normalizeName(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function getProfessionalFilterValueById(id: string) {
+  return `id:${id}`;
+}
+
+function getProfessionalFilterValueByName(name: string) {
+  return `name:${normalizeName(name)}`;
+}
+
 const serviceLabels = {
   therapist: "Mental Wellness",
   doctor: "Medical Consultation",
@@ -152,6 +164,7 @@ export function AdminDashboard() {
   const [creatingBooking, setCreatingBooking] = useState(false);
   const [financeDateFrom, setFinanceDateFrom] = useState("");
   const [financeDateTo, setFinanceDateTo] = useState("");
+  const [financeProfessional, setFinanceProfessional] = useState("all");
   const [financeSort, setFinanceSort] = useState<"newest" | "oldest" | "highest" | "lowest">(
     "newest",
   );
@@ -524,7 +537,6 @@ export function AdminDashboard() {
   );
 
   const employeeRoster = useMemo(() => {
-    const normalizeName = (value: string) => value.trim().toLowerCase();
     const curatedByName = new Map(
       professionals.map((professional) => [normalizeName(professional.name), professional]),
     );
@@ -652,12 +664,67 @@ export function AdminDashboard() {
     });
   }, [employeeRoster]);
 
+  const financeProfessionalOptions = useMemo(() => {
+    const options = professionalUsers
+      .slice()
+      .sort((first, second) => first.name.localeCompare(second.name))
+      .map((user) => ({
+        value: getProfessionalFilterValueById(user._id),
+        label: user.name,
+      }));
+    const existingValues = new Set(options.map((option) => option.value));
+
+    for (const booking of bookings) {
+      if (typeof booking.professionalId !== "object") continue;
+      const professionalName = booking.professionalId?.name?.trim();
+      if (!professionalName) continue;
+
+      const value = getProfessionalFilterValueByName(professionalName);
+      if (existingValues.has(value)) continue;
+
+      options.push({
+        value,
+        label: professionalName,
+      });
+      existingValues.add(value);
+    }
+
+    return options.sort((first, second) => first.label.localeCompare(second.label));
+  }, [bookings, professionalUsers]);
+
   const financeBookings = useMemo(() => {
     const filtered = bookings.filter((booking) =>
       isWithinDateRange(booking.scheduledAt, financeDateFrom, financeDateTo),
     );
+    const selectedProfessionalName =
+      financeProfessional.startsWith("id:")
+        ? professionalUsers.find(
+            (user) => getProfessionalFilterValueById(user._id) === financeProfessional,
+          )?.name || ""
+        : "";
 
-    return filtered.sort((first, second) => {
+    const professionalFiltered = filtered.filter((booking) => {
+      if (financeProfessional === "all") return true;
+
+      if (financeProfessional.startsWith("id:")) {
+        return (
+          (typeof booking.professionalId === "string" &&
+            getProfessionalFilterValueById(booking.professionalId) === financeProfessional) ||
+          (typeof booking.professionalId === "object" &&
+            typeof booking.professionalId?.name === "string" &&
+            getProfessionalFilterValueByName(booking.professionalId.name) ===
+              getProfessionalFilterValueByName(selectedProfessionalName))
+        );
+      }
+
+      return (
+        typeof booking.professionalId === "object" &&
+        typeof booking.professionalId?.name === "string" &&
+        getProfessionalFilterValueByName(booking.professionalId.name) === financeProfessional
+      );
+    });
+
+    return professionalFiltered.sort((first, second) => {
       if (financeSort === "oldest") {
         return new Date(first.scheduledAt).getTime() - new Date(second.scheduledAt).getTime();
       }
@@ -669,7 +736,7 @@ export function AdminDashboard() {
       }
       return new Date(second.scheduledAt).getTime() - new Date(first.scheduledAt).getTime();
     });
-  }, [bookings, financeDateFrom, financeDateTo, financeSort]);
+  }, [bookings, financeDateFrom, financeDateTo, financeProfessional, financeSort, professionalUsers]);
 
   const financeSnapshot = useMemo(() => {
     const gross = financeBookings.reduce((sum, booking) => sum + (booking.totalAmount || 0), 0);
@@ -686,6 +753,12 @@ export function AdminDashboard() {
 
     return { gross, gst, base, platform, professional };
   }, [financeBookings]);
+
+  const selectedFinanceProfessionalLabel =
+    financeProfessional === "all"
+      ? "All professionals"
+      : financeProfessionalOptions.find((option) => option.value === financeProfessional)?.label ||
+        "Selected professional";
 
   const upcomingAppointments = useMemo(() => {
     return bookings
@@ -1279,138 +1352,108 @@ export function AdminDashboard() {
             </DashboardCard>
           </div>
 
-          <div id="admin-finance" className="lg:col-span-12">
-              <DashboardCard
-              title={selectedBooking ? "Booking detail panel" : "Finance and governance"}
-              eyebrow={selectedBooking ? "Selected booking" : "Leadership"}
-            >
+          <div id="admin-finance" className="space-y-6 lg:col-span-12">
             {selectedBooking ? (
-              <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-                <div className="rounded-[22px] bg-[#f7f5f4] p-5">
-                  <p className="text-sm text-[#7e7e7e]">Service</p>
-                  <p className="mt-2 text-lg font-semibold text-[#2b2b2b]">
-                    {getServiceLabel(selectedBooking.serviceId)}
-                  </p>
-                  <p className="mt-3 text-sm text-[#7e7e7e]">
-                    {formatDateTime(selectedBooking.scheduledAt)}
-                  </p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${getBookingStatusTone(
+              <DashboardCard title="Booking detail panel" eyebrow="Selected booking">
+                <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+                  <div className="rounded-[22px] bg-[#f7f5f4] p-6">
+                    <p className="text-sm text-[#7e7e7e]">Service</p>
+                    <p className="mt-2 text-lg font-semibold text-[#2b2b2b]">
+                      {getServiceLabel(selectedBooking.serviceId)}
+                    </p>
+                    <p className="mt-3 text-sm text-[#7e7e7e]">
+                      {formatDateTime(selectedBooking.scheduledAt)}
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${getBookingStatusTone(
+                          selectedBooking.status,
+                        )}`}
+                      >
+                        {selectedBooking.status}
+                      </span>
+                      <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[#2b2b2b]">
+                        {selectedBooking.paymentStatus || "payment pending"}
+                      </span>
+                      <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[#2b2b2b]">
+                        {formatInr(selectedBooking.totalAmount || 0)}
+                      </span>
+                    </div>
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      {selectedBooking.status === "pending" ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleBookingAction(selectedBooking._id, "confirm")}
+                          disabled={actionBookingId === selectedBooking._id}
+                          className="rounded-full bg-[#2b2b2b] px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
+                        >
+                          {actionBookingId === selectedBooking._id
+                            ? "Updating..."
+                            : "Confirm booking"}
+                        </button>
+                      ) : null}
+                      {selectedBooking.status === "confirmed" ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleBookingAction(selectedBooking._id, "complete")}
+                          disabled={actionBookingId === selectedBooking._id}
+                          className="rounded-full border border-[#ead9e8] px-4 py-2 text-xs font-medium text-[#2b2b2b] disabled:opacity-50"
+                        >
+                          {actionBookingId === selectedBooking._id
+                            ? "Updating..."
+                            : "Mark completed"}
+                        </button>
+                      ) : null}
+                      {["confirmed", "completed"].includes(selectedBooking.status) ? (
+                        <Link
+                          href={`/consultation/${selectedBooking._id}`}
+                          className="rounded-full border border-[#ead9e8] px-4 py-2 text-xs font-medium text-[#2b2b2b]"
+                        >
+                          Open session room
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="rounded-[22px] bg-[#f7f5f4] p-6">
+                    <p className="text-sm font-semibold text-[#2b2b2b]">Timeline</p>
+                    <div className="mt-4 space-y-3">
+                      {getBookingTimeline(
                         selectedBooking.status,
-                      )}`}
-                    >
-                      {selectedBooking.status}
-                    </span>
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[#2b2b2b]">
-                      {selectedBooking.paymentStatus || "payment pending"}
-                    </span>
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[#2b2b2b]">
-                      {formatInr(selectedBooking.totalAmount || 0)}
-                    </span>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    {selectedBooking.status === "pending" ? (
-                      <button
-                        type="button"
-                        onClick={() => void handleBookingAction(selectedBooking._id, "confirm")}
-                        disabled={actionBookingId === selectedBooking._id}
-                        className="rounded-full bg-[#2b2b2b] px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
-                      >
-                        {actionBookingId === selectedBooking._id ? "Updating..." : "Confirm booking"}
-                      </button>
-                    ) : null}
-                    {selectedBooking.status === "confirmed" ? (
-                      <button
-                        type="button"
-                        onClick={() => void handleBookingAction(selectedBooking._id, "complete")}
-                        disabled={actionBookingId === selectedBooking._id}
-                        className="rounded-full border border-[#ead9e8] px-4 py-2 text-xs font-medium text-[#2b2b2b] disabled:opacity-50"
-                      >
-                        {actionBookingId === selectedBooking._id ? "Updating..." : "Mark completed"}
-                      </button>
-                    ) : null}
-                    {["confirmed", "completed"].includes(selectedBooking.status) ? (
-                      <Link
-                        href={`/consultation/${selectedBooking._id}`}
-                        className="rounded-full border border-[#ead9e8] px-4 py-2 text-xs font-medium text-[#2b2b2b]"
-                      >
-                        Open session room
-                      </Link>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="rounded-[22px] bg-[#f7f5f4] p-5">
-                  <p className="text-sm font-semibold text-[#2b2b2b]">Timeline</p>
-                  <div className="mt-4 space-y-3">
-                    {getBookingTimeline(
-                      selectedBooking.status,
-                      selectedBooking.scheduledAt,
-                      selectedBooking.timestamps,
-                    ).map((item) => (
-                      <div key={item.label} className="flex items-start gap-3">
-                        <span
-                          className={`mt-1 h-2.5 w-2.5 rounded-full ${
-                            item.active ? "bg-[#f56969]" : "bg-[#d8d3d0]"
-                          }`}
-                        />
-                        <div>
-                          <p className="text-sm font-medium text-[#2b2b2b]">{item.label}</p>
-                          <p className="text-sm text-[#7e7e7e]">
-                            {item.value ? formatDateTime(item.value) : "Not reached yet"}
-                          </p>
+                        selectedBooking.scheduledAt,
+                        selectedBooking.timestamps,
+                      ).map((item) => (
+                        <div key={item.label} className="flex items-start gap-3">
+                          <span
+                            className={`mt-1 h-2.5 w-2.5 rounded-full ${
+                              item.active ? "bg-[#f56969]" : "bg-[#d8d3d0]"
+                            }`}
+                          />
+                          <div>
+                            <p className="text-sm font-medium text-[#2b2b2b]">{item.label}</p>
+                            <p className="text-sm text-[#7e7e7e]">
+                              {item.value ? formatDateTime(item.value) : "Not reached yet"}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
+              </DashboardCard>
             ) : null}
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {[
-                {
-                  icon: CreditCard,
-                  title: "Gross booking value",
-                  value: formatInr(financeSnapshot.gross),
-                  note: "Total client amount across the filtered payment log.",
-                },
-                {
-                  icon: IndianRupee,
-                  title: "Professional payouts",
-                  value: formatInr(financeSnapshot.professional),
-                  note: "75% share after GST is removed from each filtered order.",
-                },
-                {
-                  icon: ChartColumnIncreasing,
-                  title: "THK earnings",
-                  value: formatInr(financeSnapshot.platform),
-                  note: "25% share after GST deduction across filtered orders.",
-                },
-                {
-                  icon: Shield,
-                  title: "GST collected",
-                  value: formatInr(financeSnapshot.gst),
-                  note: "Tax amount separated before the 25/75 platform split.",
-                },
-              ].map((item) => (
-                <div key={item.title} className="rounded-[22px] bg-[#f7f5f4] p-5">
-                  <item.icon className="h-5 w-5 text-[#f56969]" />
-                  <p className="mt-3 text-sm text-[#7e7e7e]">{item.title}</p>
-                  <p className="mt-3 text-2xl font-bold text-[#2b2b2b]">{item.value}</p>
-                  <p className="mt-2 text-sm leading-6 text-[#7e7e7e]">{item.note}</p>
-                </div>
-              ))}
-              </div>
-              <div className="mt-6 rounded-[22px] bg-[#f7f5f4] p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                  <div>
+
+            <DashboardCard title="Finance and governance" eyebrow="Leadership">
+              <div className="rounded-[24px] bg-[#f7f5f4] p-6">
+                <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+                  <div className="max-w-[620px]">
                     <p className="text-sm font-semibold text-[#2b2b2b]">Payment split log</p>
-                    <p className="mt-1 text-sm text-[#7e7e7e]">
-                      GST is separated first, then the remaining base amount is split 25% to The
-                      Hyphen Konnect and 75% to the professional for every order.
+                    <p className="mt-2 text-sm leading-6 text-[#7e7e7e]">
+                      Filter by date and professional to see payout totals clearly. For example,
+                      choose the 15th as the start date, the 30th as the end date, then select one
+                      professional to see exactly how much that person earned in that window.
                     </p>
                   </div>
-                  <div className="grid gap-3 md:grid-cols-3">
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                     <label className="text-sm text-[#7e7e7e]">
                       From
                       <input
@@ -1428,6 +1471,21 @@ export function AdminDashboard() {
                         onChange={(event) => setFinanceDateTo(event.target.value)}
                         className="mt-2 w-full rounded-[14px] border border-[#ead9e8] bg-white px-4 py-2.5 text-[#2b2b2b] outline-none"
                       />
+                    </label>
+                    <label className="text-sm text-[#7e7e7e]">
+                      Professional
+                      <select
+                        value={financeProfessional}
+                        onChange={(event) => setFinanceProfessional(event.target.value)}
+                        className="mt-2 w-full rounded-[14px] border border-[#ead9e8] bg-white px-4 py-2.5 text-[#2b2b2b] outline-none"
+                      >
+                        <option value="all">All professionals</option>
+                        {financeProfessionalOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
                     </label>
                     <label className="text-sm text-[#7e7e7e]">
                       Sort
@@ -1448,21 +1506,73 @@ export function AdminDashboard() {
                     </label>
                   </div>
                 </div>
+              </div>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {[
+                  {
+                    icon: CreditCard,
+                    title: "Gross booking value",
+                    value: formatInr(financeSnapshot.gross),
+                    note: `Client payments for ${selectedFinanceProfessionalLabel.toLowerCase()}.`,
+                  },
+                  {
+                    icon: IndianRupee,
+                    title: "Professional payouts",
+                    value: formatInr(financeSnapshot.professional),
+                    note: `Total earned by ${selectedFinanceProfessionalLabel.toLowerCase()}.`,
+                  },
+                  {
+                    icon: ChartColumnIncreasing,
+                    title: "THK earnings",
+                    value: formatInr(financeSnapshot.platform),
+                    note: "Platform share after GST deduction in the filtered range.",
+                  },
+                  {
+                    icon: Shield,
+                    title: "GST collected",
+                    value: formatInr(financeSnapshot.gst),
+                    note: "Tax amount separated before the 25/75 platform split.",
+                  },
+                ].map((item) => (
+                  <div key={item.title} className="rounded-[22px] bg-[#f7f5f4] p-6">
+                    <item.icon className="h-5 w-5 text-[#f56969]" />
+                    <p className="mt-3 text-sm text-[#7e7e7e]">{item.title}</p>
+                    <p className="mt-3 text-2xl font-bold text-[#2b2b2b]">{item.value}</p>
+                    <p className="mt-2 text-sm leading-6 text-[#7e7e7e]">{item.note}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 rounded-[24px] bg-[#f7f5f4] p-6">
+                <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[#2b2b2b]">Filtered booking payouts</p>
+                    <p className="mt-1 text-sm text-[#7e7e7e]">
+                      Showing {selectedFinanceProfessionalLabel} across the selected dates.
+                    </p>
+                  </div>
+                  <p className="text-sm font-medium text-[#2b2b2b]">
+                    Total payout: {formatInr(financeSnapshot.professional)}
+                  </p>
+                </div>
+
                 <div className="mt-5 space-y-3">
                   {financeBookings.length ? (
                     financeBookings.map((booking) => {
                       const professionalName =
                         typeof booking.professionalId === "object"
                           ? booking.professionalId?.name || "Assigned professional"
-                          : "Assigned professional";
+                          : professionalUsers.find((user) => user._id === booking.professionalId)
+                              ?.name || "Assigned professional";
                       const clientName =
                         typeof booking.clientId === "object"
                           ? booking.clientId?.name || "Client"
                           : "Client";
 
                       return (
-                        <div key={booking._id} className="rounded-[18px] bg-white p-4">
-                          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                        <div key={booking._id} className="rounded-[18px] bg-white p-5">
+                          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                             <div>
                               <p className="font-semibold text-[#2b2b2b]">
                                 {professionalName} with {clientName}
@@ -1475,7 +1585,7 @@ export function AdminDashboard() {
                                 {booking.paymentStatus || "payment pending"}
                               </p>
                             </div>
-                            <div className="grid gap-2 text-sm text-[#7e7e7e] sm:grid-cols-2 xl:grid-cols-5">
+                            <div className="grid gap-3 text-sm text-[#7e7e7e] sm:grid-cols-2 xl:grid-cols-5">
                               <div>
                                 <p className="uppercase tracking-[0.16em]">Client paid</p>
                                 <p className="mt-1 font-semibold text-[#2b2b2b]">
@@ -1514,7 +1624,7 @@ export function AdminDashboard() {
                   ) : (
                     <EmptyState
                       title="No payment records in this range"
-                      description="Try widening the date range to inspect more order splits."
+                      description="Try another date range or switch the professional filter to inspect more payouts."
                     />
                   )}
                 </div>
