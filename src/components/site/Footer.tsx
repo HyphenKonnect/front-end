@@ -28,7 +28,7 @@ const quickLinks = [
   { label: "Book a Session", href: "/booking" },
   { label: "Client Portal", href: "/dashboard/client" },
   { label: "Professional Login", href: "/professional-login" },
-  { label: "Admin Portal", href: "/dashboard/admin" },
+  { label: "Admin Portal", href: "/admin" },
   { label: "FAQ", href: "/resources" },
 ];
 

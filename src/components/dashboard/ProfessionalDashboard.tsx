@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BadgeCheck, CalendarClock, Clock, IndianRupee, UserRound } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
@@ -28,6 +28,10 @@ type ProfessionalBooking = {
   status: string;
   serviceId?: string;
   paymentStatus?: string;
+  basePrice?: number;
+  gstAmount?: number;
+  totalAmount?: number;
+  platformCommission?: number;
   timestamps?: {
     createdAt?: string;
     confirmedAt?: string;
@@ -43,6 +47,23 @@ type ProfessionalBooking = {
       };
   professionalFee?: number;
 };
+
+function isWithinDateRange(value: string, from: string, to: string) {
+  const target = new Date(value);
+  if (Number.isNaN(target.getTime())) return false;
+
+  if (from) {
+    const start = new Date(`${from}T00:00:00`);
+    if (target < start) return false;
+  }
+
+  if (to) {
+    const end = new Date(`${to}T23:59:59.999`);
+    if (target > end) return false;
+  }
+
+  return true;
+}
 
 type SpecialDateEntry = {
   date: string;
@@ -301,6 +322,11 @@ export function ProfessionalDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [earningsDateFrom, setEarningsDateFrom] = useState("");
+  const [earningsDateTo, setEarningsDateTo] = useState("");
+  const [earningsSort, setEarningsSort] = useState<
+    "newest" | "oldest" | "highest" | "lowest"
+  >("newest");
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [actionBookingId, setActionBookingId] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -570,23 +596,56 @@ export function ProfessionalDashboard() {
     }
   };
 
-  const upcoming = bookings.filter((item) =>
-    ["pending", "confirmed", "active"].includes(item.status),
+  const upcoming = useMemo(
+    () => bookings.filter((item) => ["pending", "confirmed", "active"].includes(item.status)),
+    [bookings],
   );
 
-  const projectedEarnings = bookings.reduce(
-    (sum, booking) => sum + (booking.professionalFee || 0),
-    0,
-  );
-  const capturedEarnings = bookings
-    .filter((booking) => booking.paymentStatus === "captured")
-    .reduce((sum, booking) => sum + (booking.professionalFee || 0), 0);
+  const earningsBookings = useMemo(() => {
+    const filtered = bookings.filter((booking) =>
+      isWithinDateRange(booking.scheduledAt, earningsDateFrom, earningsDateTo),
+    );
+
+    return filtered.sort((first, second) => {
+      if (earningsSort === "oldest") {
+        return new Date(first.scheduledAt).getTime() - new Date(second.scheduledAt).getTime();
+      }
+      if (earningsSort === "highest") {
+        return (second.professionalFee || 0) - (first.professionalFee || 0);
+      }
+      if (earningsSort === "lowest") {
+        return (first.professionalFee || 0) - (second.professionalFee || 0);
+      }
+      return new Date(second.scheduledAt).getTime() - new Date(first.scheduledAt).getTime();
+    });
+  }, [bookings, earningsDateFrom, earningsDateTo, earningsSort]);
+
+  const earningsSnapshot = useMemo(() => {
+    const gross = earningsBookings.reduce((sum, booking) => sum + (booking.totalAmount || 0), 0);
+    const gst = earningsBookings.reduce((sum, booking) => sum + (booking.gstAmount || 0), 0);
+    const base = earningsBookings.reduce((sum, booking) => sum + (booking.basePrice || 0), 0);
+    const platform = earningsBookings.reduce(
+      (sum, booking) => sum + (booking.platformCommission || 0),
+      0,
+    );
+    const professional = earningsBookings.reduce(
+      (sum, booking) => sum + (booking.professionalFee || 0),
+      0,
+    );
+    const captured = earningsBookings
+      .filter((booking) => booking.paymentStatus === "captured")
+      .reduce((sum, booking) => sum + (booking.professionalFee || 0), 0);
+
+    return { gross, gst, base, platform, professional, captured };
+  }, [earningsBookings]);
+
   const selectedBooking =
     upcoming.find((booking) => booking._id === selectedBookingId) ||
     upcoming[0] ||
     null;
-  const completedBookings = bookings.filter((item) =>
-    ["completed", "cancelled"].includes(item.status),
+  const completedBookings = useMemo(
+    () => bookings.filter((item) => ["completed", "cancelled"].includes(item.status)),
+    [bookings],
   );
   const canAddSpecialDate =
     Boolean(specialDateForm.date) &&
@@ -636,8 +695,8 @@ export function ProfessionalDashboard() {
               },
               {
                 label: "Projected earnings",
-                value: formatInr(projectedEarnings),
-                note: `Captured so far ${formatInr(capturedEarnings)}`,
+                value: formatInr(earningsSnapshot.professional),
+                note: `Captured so far ${formatInr(earningsSnapshot.captured)}`,
               },
               {
                 label: "Verification",
@@ -899,6 +958,159 @@ export function ProfessionalDashboard() {
                 description="Completed or cancelled sessions will show here once your schedule history grows."
               />
             )}
+          </DashboardCard>
+
+          <DashboardCard
+            title="Payment split log"
+            className="lg:col-span-12"
+            eyebrow="Earnings"
+          >
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[#2b2b2b]">Your payout breakdown</p>
+                <p className="mt-1 text-sm text-[#7e7e7e]">
+                  GST is deducted first. From the remaining base amount, The Hyphen Konnect keeps
+                  25% and you receive 75% for each order.
+                </p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-3">
+                <label className="text-sm text-[#7e7e7e]">
+                  From
+                  <input
+                    type="date"
+                    value={earningsDateFrom}
+                    onChange={(event) => setEarningsDateFrom(event.target.value)}
+                    className="mt-2 w-full rounded-[14px] border border-[#ead9e8] bg-[#f7f5f4] px-4 py-2.5 text-[#2b2b2b] outline-none"
+                  />
+                </label>
+                <label className="text-sm text-[#7e7e7e]">
+                  To
+                  <input
+                    type="date"
+                    value={earningsDateTo}
+                    onChange={(event) => setEarningsDateTo(event.target.value)}
+                    className="mt-2 w-full rounded-[14px] border border-[#ead9e8] bg-[#f7f5f4] px-4 py-2.5 text-[#2b2b2b] outline-none"
+                  />
+                </label>
+                <label className="text-sm text-[#7e7e7e]">
+                  Sort
+                  <select
+                    value={earningsSort}
+                    onChange={(event) =>
+                      setEarningsSort(
+                        event.target.value as "newest" | "oldest" | "highest" | "lowest",
+                      )
+                    }
+                    className="mt-2 w-full rounded-[14px] border border-[#ead9e8] bg-[#f7f5f4] px-4 py-2.5 text-[#2b2b2b] outline-none"
+                  >
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                    <option value="highest">Highest payout</option>
+                    <option value="lowest">Lowest payout</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              {[
+                {
+                  label: "Client paid",
+                  value: formatInr(earningsSnapshot.gross),
+                },
+                {
+                  label: "GST deducted",
+                  value: formatInr(earningsSnapshot.gst),
+                },
+                {
+                  label: "After GST",
+                  value: formatInr(earningsSnapshot.base),
+                },
+                {
+                  label: "THK 25%",
+                  value: formatInr(earningsSnapshot.platform),
+                },
+                {
+                  label: "Your total earnings",
+                  value: formatInr(earningsSnapshot.professional),
+                },
+              ].map((item) => (
+                <div key={item.label} className="rounded-[18px] bg-[#f7f5f4] p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-[#7e7e7e]">
+                    {item.label}
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-[#2b2b2b]">{item.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {earningsBookings.length ? (
+                earningsBookings.map((booking) => {
+                  const clientName =
+                    typeof booking.clientId === "object"
+                      ? booking.clientId?.name || "Client"
+                      : "Client";
+
+                  return (
+                    <div key={booking._id} className="rounded-[18px] bg-[#f7f5f4] p-4">
+                      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                        <div>
+                          <p className="font-semibold text-[#2b2b2b]">{clientName}</p>
+                          <p className="mt-1 text-sm text-[#7e7e7e]">
+                            {getServiceLabel(booking.serviceId)}
+                          </p>
+                          <p className="mt-1 text-sm text-[#7e7e7e]">
+                            {formatDateTime(booking.scheduledAt)}
+                          </p>
+                          <p className="mt-1 text-sm text-[#7e7e7e]">
+                            Status: {booking.status} | Payment:{" "}
+                            {booking.paymentStatus || "payment pending"}
+                          </p>
+                        </div>
+                        <div className="grid gap-2 text-sm text-[#7e7e7e] sm:grid-cols-2 xl:grid-cols-5">
+                          <div>
+                            <p className="uppercase tracking-[0.16em]">Client paid</p>
+                            <p className="mt-1 font-semibold text-[#2b2b2b]">
+                              {formatInr(booking.totalAmount || 0)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="uppercase tracking-[0.16em]">GST</p>
+                            <p className="mt-1 font-semibold text-[#2b2b2b]">
+                              {formatInr(booking.gstAmount || 0)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="uppercase tracking-[0.16em]">After GST</p>
+                            <p className="mt-1 font-semibold text-[#2b2b2b]">
+                              {formatInr(booking.basePrice || 0)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="uppercase tracking-[0.16em]">THK 25%</p>
+                            <p className="mt-1 font-semibold text-[#2b2b2b]">
+                              {formatInr(booking.platformCommission || 0)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="uppercase tracking-[0.16em]">Your 75%</p>
+                            <p className="mt-1 font-semibold text-[#2b2b2b]">
+                              {formatInr(booking.professionalFee || 0)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <EmptyState
+                  title="No payment records in this range"
+                  description="Try widening the date range to inspect your payout history."
+                />
+              )}
+            </div>
           </DashboardCard>
 
           <DashboardCard

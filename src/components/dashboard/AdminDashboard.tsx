@@ -55,6 +55,7 @@ type AdminUser = {
   name: string;
   email: string;
   role: "client" | "professional" | "admin";
+  avatar?: string;
   isActive?: boolean;
   onboardingComplete?: boolean;
   phone?: string;
@@ -73,6 +74,8 @@ type AdminBooking = {
   status: string;
   serviceId?: string;
   paymentStatus?: string;
+  basePrice?: number;
+  gstAmount?: number;
   totalAmount?: number;
   platformCommission?: number;
   professionalFee?: number;
@@ -86,6 +89,23 @@ type AdminBooking = {
   professionalId?: string | { name?: string; email?: string };
   clientId?: string | { name?: string; email?: string };
 };
+
+function isWithinDateRange(value: string, from: string, to: string) {
+  const target = new Date(value);
+  if (Number.isNaN(target.getTime())) return false;
+
+  if (from) {
+    const start = new Date(`${from}T00:00:00`);
+    if (target < start) return false;
+  }
+
+  if (to) {
+    const end = new Date(`${to}T23:59:59.999`);
+    if (target > end) return false;
+  }
+
+  return true;
+}
 
 const serviceLabels = {
   therapist: "Mental Wellness",
@@ -116,22 +136,30 @@ export function AdminDashboard() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const [creatingProfessional, setCreatingProfessional] = useState(false);
+  const [avatarDrafts, setAvatarDrafts] = useState<Record<string, string>>({});
+  const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
   const [newProfessional, setNewProfessional] = useState({
     name: "",
     email: "",
     password: "",
     phone: "",
+    avatar: "",
     specialisation: "",
     serviceCategory: "therapist",
     yearsExperience: "",
     sessionPrice: "",
   });
   const [creatingBooking, setCreatingBooking] = useState(false);
+  const [financeDateFrom, setFinanceDateFrom] = useState("");
+  const [financeDateTo, setFinanceDateTo] = useState("");
+  const [financeSort, setFinanceSort] = useState<"newest" | "oldest" | "highest" | "lowest">(
+    "newest",
+  );
   const [manualBooking, setManualBooking] = useState({
     clientId: "",
     professionalId: "",
     scheduledAt: "",
-    sendPaymentRequest: true,
+    sendPaymentRequest: false,
   });
 
   useEffect(() => {
@@ -291,6 +319,120 @@ export function AdminDashboard() {
     }
   };
 
+  const handleAvatarUpdate = async (userId: string) => {
+    try {
+      setSavingUserId(userId);
+      setError(null);
+      const response = await apiFetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          avatar: (avatarDrafts[userId] ?? "").trim(),
+        }),
+      });
+      const data = await parseJsonResponse<{ user?: AdminUser }>(response);
+      await refreshUsersAndSummary();
+      setAvatarDrafts((current) => ({
+        ...current,
+        [userId]: data.user?.avatar || "",
+      }));
+      setSuccessMessage("Professional profile picture updated successfully.");
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "We could not update the professional profile picture right now.",
+      );
+    } finally {
+      setSavingUserId(null);
+    }
+  };
+
+  const handleAvatarFileChange = async (userId: string, file?: File | null) => {
+    if (!file) return;
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.onerror = () => reject(new Error("Could not read the selected image."));
+      reader.readAsDataURL(file);
+    });
+
+    setAvatarDrafts((current) => ({
+      ...current,
+      [userId]: dataUrl,
+    }));
+  };
+
+  const handleNewProfessionalPhotoChange = async (file?: File | null) => {
+    if (!file) return;
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.onerror = () => reject(new Error("Could not read the selected image."));
+      reader.readAsDataURL(file);
+    });
+
+    setNewProfessional((current) => ({
+      ...current,
+      avatar: dataUrl,
+    }));
+  };
+
+  const handleSessionPriceUpdate = async (userId: string) => {
+    try {
+      setSavingUserId(userId);
+      setError(null);
+      const targetUser = users.find((user) => user._id === userId);
+      const rawValue = (priceDrafts[userId] ?? "").trim();
+      const response = await apiFetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          profile: {
+            ...targetUser?.profile,
+            sessionPrice: rawValue ? Number(rawValue) : 0,
+          },
+        }),
+      });
+      await parseJsonResponse(response);
+      await refreshUsersAndSummary();
+      setSuccessMessage("Professional session price updated successfully.");
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "We could not update the professional session price right now.",
+      );
+    } finally {
+      setSavingUserId(null);
+    }
+  };
+
+  const handleDeleteProfessional = async (userId: string, name: string) => {
+    if (!window.confirm(`Delete ${name}? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setSavingUserId(userId);
+      setError(null);
+      const response = await apiFetch(`/api/admin/users/${userId}`, {
+        method: "DELETE",
+      });
+      await parseJsonResponse(response);
+      await refreshUsersAndSummary();
+      setSuccessMessage("Professional deleted successfully.");
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "We could not delete the professional right now.",
+      );
+    } finally {
+      setSavingUserId(null);
+    }
+  };
+
   const handleCreateProfessional = async () => {
     try {
       setCreatingProfessional(true);
@@ -302,6 +444,7 @@ export function AdminDashboard() {
           email: newProfessional.email,
           password: newProfessional.password,
           phone: newProfessional.phone,
+          avatar: newProfessional.avatar,
           profile: {
             specialisation: newProfessional.specialisation,
             serviceCategory: newProfessional.serviceCategory,
@@ -322,6 +465,7 @@ export function AdminDashboard() {
         email: "",
         password: "",
         phone: "",
+        avatar: "",
         specialisation: "",
         serviceCategory: "therapist",
         yearsExperience: "",
@@ -348,17 +492,16 @@ export function AdminDashboard() {
           clientId: manualBooking.clientId,
           professionalId: manualBooking.professionalId,
           scheduledAt: manualBooking.scheduledAt,
-          sendPaymentRequest: manualBooking.sendPaymentRequest,
         }),
       });
       await parseJsonResponse(response);
       await refreshBookings();
-      setSuccessMessage("Manual booking created and payment request sent.");
+      setSuccessMessage("Free manual booking created and confirmed.");
       setManualBooking({
         clientId: "",
         professionalId: "",
         scheduledAt: "",
-        sendPaymentRequest: true,
+        sendPaymentRequest: false,
       });
     } catch (createError) {
       setError(
@@ -381,24 +524,48 @@ export function AdminDashboard() {
   );
 
   const employeeRoster = useMemo(() => {
-    return professionals.map((professional) => {
+    const normalizeName = (value: string) => value.trim().toLowerCase();
+    const curatedByName = new Map(
+      professionals.map((professional) => [normalizeName(professional.name), professional]),
+    );
+    const roster = new Map<string, {
+      id: string;
+      name: string;
+      email: string;
+      service: string;
+      serviceKey: "therapist" | "doctor" | "legal" | "wellness" | "all";
+      specialty: string;
+      rate: string;
+      sessionPriceValue: string;
+      experience: string;
+      status: string;
+      verification: string;
+      avatar: string;
+      hasLiveRecord: boolean;
+    }>();
+
+    for (const professional of professionals) {
       const linkedUser = professionalUsers.find(
-        (user) => user.name.toLowerCase() === professional.name.toLowerCase(),
+        (user) => normalizeName(user.name) === normalizeName(professional.name),
       );
       const serviceKey =
         linkedUser?.profile?.serviceCategory || professional.category;
 
-      return {
+      roster.set(normalizeName(professional.name), {
         id: linkedUser?._id || String(professional.id),
-        name: professional.name,
+        name: linkedUser?.name || professional.name,
         email: linkedUser?.email || "Profile email pending",
         service: serviceLabels[serviceKey as keyof typeof serviceLabels] || serviceLabels.all,
         serviceKey,
-        specialty: professional.specialty,
+        specialty: linkedUser?.profile?.specialisation || professional.specialty,
         rate:
           linkedUser?.profile?.sessionPrice != null
             ? `Rs. ${linkedUser.profile.sessionPrice}/session`
             : professional.rate,
+        sessionPriceValue:
+          linkedUser?.profile?.sessionPrice != null
+            ? String(linkedUser.profile.sessionPrice)
+            : "",
         experience:
           linkedUser?.profile?.yearsExperience != null
             ? `${linkedUser.profile.yearsExperience} years`
@@ -406,8 +573,41 @@ export function AdminDashboard() {
         status: linkedUser?.isActive === false ? "Paused" : "Active",
         verification:
           linkedUser?.profile?.verified || professional.available ? "Verified" : "Reviewing",
-      };
-    });
+        avatar: linkedUser?.avatar || professional.image || "/brand-logo.png",
+        hasLiveRecord: Boolean(linkedUser?._id),
+      });
+    }
+
+    for (const user of professionalUsers) {
+      const key = normalizeName(user.name);
+      const localMatch = curatedByName.get(key);
+      const serviceKey = user.profile?.serviceCategory || localMatch?.category || "all";
+
+      roster.set(key, {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        service: serviceLabels[serviceKey as keyof typeof serviceLabels] || serviceLabels.all,
+        serviceKey,
+        specialty: user.profile?.specialisation || localMatch?.specialty || "Specialist",
+        rate:
+          user.profile?.sessionPrice != null
+            ? `Rs. ${user.profile.sessionPrice}/session`
+            : localMatch?.rate || "Rate pending",
+        sessionPriceValue:
+          user.profile?.sessionPrice != null ? String(user.profile.sessionPrice) : "",
+        experience:
+          user.profile?.yearsExperience != null
+            ? `${user.profile.yearsExperience} years`
+            : localMatch?.experience || "Experience pending",
+        status: user.isActive === false ? "Paused" : "Active",
+        verification: user.profile?.verified ? "Verified" : "Reviewing",
+        avatar: user.avatar || localMatch?.image || "/brand-logo.png",
+        hasLiveRecord: true,
+      });
+    }
+
+    return Array.from(roster.values());
   }, [professionalUsers]);
 
   const bookingInsights = useMemo(() => {
@@ -451,6 +651,41 @@ export function AdminDashboard() {
       };
     });
   }, [employeeRoster]);
+
+  const financeBookings = useMemo(() => {
+    const filtered = bookings.filter((booking) =>
+      isWithinDateRange(booking.scheduledAt, financeDateFrom, financeDateTo),
+    );
+
+    return filtered.sort((first, second) => {
+      if (financeSort === "oldest") {
+        return new Date(first.scheduledAt).getTime() - new Date(second.scheduledAt).getTime();
+      }
+      if (financeSort === "highest") {
+        return (second.totalAmount || 0) - (first.totalAmount || 0);
+      }
+      if (financeSort === "lowest") {
+        return (first.totalAmount || 0) - (second.totalAmount || 0);
+      }
+      return new Date(second.scheduledAt).getTime() - new Date(first.scheduledAt).getTime();
+    });
+  }, [bookings, financeDateFrom, financeDateTo, financeSort]);
+
+  const financeSnapshot = useMemo(() => {
+    const gross = financeBookings.reduce((sum, booking) => sum + (booking.totalAmount || 0), 0);
+    const gst = financeBookings.reduce((sum, booking) => sum + (booking.gstAmount || 0), 0);
+    const base = financeBookings.reduce((sum, booking) => sum + (booking.basePrice || 0), 0);
+    const platform = financeBookings.reduce(
+      (sum, booking) => sum + (booking.platformCommission || 0),
+      0,
+    );
+    const professional = financeBookings.reduce(
+      (sum, booking) => sum + (booking.professionalFee || 0),
+      0,
+    );
+
+    return { gross, gst, base, platform, professional };
+  }, [financeBookings]);
 
   const upcomingAppointments = useMemo(() => {
     return bookings
@@ -556,7 +791,7 @@ export function AdminDashboard() {
 
             <section id="admin-operations">
               <DashboardGrid>
-          <DashboardCard title="Operations lanes" className="lg:col-span-12" eyebrow="Overview">
+                <DashboardCard title="Operations lanes" className="lg:col-span-12" eyebrow="Overview">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {[
                 {
@@ -587,122 +822,190 @@ export function AdminDashboard() {
                 </div>
               ))}
             </div>
-          </DashboardCard>
+                </DashboardCard>
 
-          <div id="admin-team" className="lg:col-span-8">
-            <DashboardCard title="Employee management" eyebrow="Team">
-            {employeeRoster.length ? (
-              <div className="space-y-4">
-                {employeeRoster.map((employee) => (
-                  <div
-                    key={employee.id}
-                    className="rounded-[24px] bg-[#f7f5f4] p-5"
-                  >
-                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <p className="text-lg font-semibold text-[#2b2b2b]">{employee.name}</p>
-                          <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[#f56969]">
-                            {employee.service}
-                          </span>
-                          <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[#2b2b2b]">
-                            {employee.verification}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-sm text-[#7e7e7e]">{employee.specialty}</p>
-                        <p className="mt-1 text-sm text-[#7e7e7e]">{employee.email}</p>
-                      </div>
-                      <div className="grid gap-2 text-sm text-[#7e7e7e] sm:grid-cols-3">
-                        <div className="rounded-[18px] bg-white px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.18em]">Rate</p>
-                          <p className="mt-2 font-medium text-[#2b2b2b]">{employee.rate}</p>
-                        </div>
-                        <div className="rounded-[18px] bg-white px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.18em]">Experience</p>
-                          <p className="mt-2 font-medium text-[#2b2b2b]">{employee.experience}</p>
-                        </div>
-                        <div className="rounded-[18px] bg-white px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.18em]">Status</p>
-                          <p className="mt-2 font-medium text-[#2b2b2b]">{employee.status}</p>
-                        </div>
-                      </div>
-                    </div>
-                    {users.find((user) => user._id === employee.id)?.role === "professional" ? (
-                      <div className="mt-4 flex flex-col gap-3 border-t border-[#ead9e8] pt-4 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => void handleUserAction(employee.id, "approve")}
-                            disabled={savingUserId === employee.id}
-                            className="rounded-full border border-[#ead9e8] px-4 py-2 text-xs font-medium text-[#2b2b2b] disabled:opacity-50"
+                <div id="admin-team" className="lg:col-span-8">
+                  <DashboardCard title="Employee management" eyebrow="Team">
+                    {employeeRoster.length ? (
+                      <div className="space-y-4">
+                        {employeeRoster.map((employee) => (
+                          <div
+                            key={employee.id}
+                            className="rounded-[24px] bg-[#f7f5f4] p-5"
                           >
-                            Approve
-                          </button>
-                          {employee.status === "Paused" ? (
-                            <button
-                              type="button"
-                              onClick={() => void handleUserAction(employee.id, "reactivate")}
-                              disabled={savingUserId === employee.id}
-                              className="rounded-full border border-[#ead9e8] px-4 py-2 text-xs font-medium text-[#2b2b2b] disabled:opacity-50"
-                            >
-                              Reactivate
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => void handleUserAction(employee.id, "suspend")}
-                              disabled={savingUserId === employee.id}
-                              className="rounded-full border border-[#f4c7c4] px-4 py-2 text-xs font-medium text-[#f56969] disabled:opacity-50"
-                            >
-                              Suspend
-                            </button>
-                          )}
-                        </div>
-                        <label className="text-xs font-medium uppercase tracking-[0.16em] text-[#7e7e7e]">
-                          Service assignment
-                          <select
-                            value={employee.serviceKey}
-                            onChange={(event) =>
-                              void handleServiceAssignment(
-                                employee.id,
-                                event.target.value as
-                                  | "therapist"
-                                  | "doctor"
-                                  | "legal"
-                                  | "wellness",
-                              )
-                            }
-                            className="ml-0 mt-2 block rounded-full border border-[#ead9e8] bg-white px-4 py-2 text-sm font-medium normal-case tracking-normal text-[#2b2b2b] outline-none lg:ml-3 lg:inline-flex lg:mt-0"
-                          >
-                            <option value="therapist">Mental Wellness</option>
-                            <option value="doctor">Medical Consultation</option>
-                            <option value="legal">Legal Guidance</option>
-                            <option value="wellness">Wellness Programs</option>
-                          </select>
-                        </label>
+                            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                              <div className="flex gap-4">
+                                <img
+                                  src={employee.avatar}
+                                  alt={`${employee.name} profile`}
+                                  className="h-16 w-16 rounded-[20px] object-cover"
+                                />
+                                <div>
+                                  <div className="flex flex-wrap items-center gap-3">
+                                    <p className="text-lg font-semibold text-[#2b2b2b]">{employee.name}</p>
+                                    <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[#f56969]">
+                                      {employee.service}
+                                    </span>
+                                    <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[#2b2b2b]">
+                                      {employee.verification}
+                                    </span>
+                                  </div>
+                                  <p className="mt-2 text-sm text-[#7e7e7e]">{employee.specialty}</p>
+                                  <p className="mt-1 text-sm text-[#7e7e7e]">{employee.email}</p>
+                                </div>
+                              </div>
+                              <div className="grid gap-2 text-sm text-[#7e7e7e] sm:grid-cols-3">
+                                <div className="rounded-[18px] bg-white px-4 py-3">
+                                  <p className="text-xs uppercase tracking-[0.18em]">Rate</p>
+                                  <p className="mt-2 font-medium text-[#2b2b2b]">{employee.rate}</p>
+                                </div>
+                                <div className="rounded-[18px] bg-white px-4 py-3">
+                                  <p className="text-xs uppercase tracking-[0.18em]">Experience</p>
+                                  <p className="mt-2 font-medium text-[#2b2b2b]">{employee.experience}</p>
+                                </div>
+                                <div className="rounded-[18px] bg-white px-4 py-3">
+                                  <p className="text-xs uppercase tracking-[0.18em]">Status</p>
+                                  <p className="mt-2 font-medium text-[#2b2b2b]">{employee.status}</p>
+                                </div>
+                              </div>
+                            </div>
+                            {users.find((user) => user._id === employee.id)?.role === "professional" ? (
+                              <div className="mt-4 space-y-3 border-t border-[#ead9e8] pt-4">
+                                <div className="grid gap-3 xl:grid-cols-[1.15fr_0.85fr_auto]">
+                                  <label className="block text-xs font-medium uppercase tracking-[0.16em] text-[#7e7e7e]">
+                                    Upload main profile picture
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={(event) =>
+                                        void handleAvatarFileChange(
+                                          employee.id,
+                                          event.target.files?.[0],
+                                        )
+                                      }
+                                      className="mt-2 block w-full rounded-[16px] border border-[#ead9e8] bg-white px-4 py-3 text-sm font-normal normal-case tracking-normal text-[#2b2b2b] outline-none file:mr-3 file:rounded-full file:border-0 file:bg-[#f7f5f4] file:px-3 file:py-2 file:text-sm file:font-medium"
+                                    />
+                                  </label>
+                                  <label className="block text-xs font-medium uppercase tracking-[0.16em] text-[#7e7e7e]">
+                                    Session price
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={priceDrafts[employee.id] ?? employee.sessionPriceValue}
+                                      onChange={(event) =>
+                                        setPriceDrafts((current) => ({
+                                          ...current,
+                                          [employee.id]: event.target.value,
+                                        }))
+                                      }
+                                      placeholder="0"
+                                      className="mt-2 w-full rounded-[16px] border border-[#ead9e8] bg-white px-4 py-3 text-sm font-normal normal-case tracking-normal text-[#2b2b2b] outline-none"
+                                    />
+                                  </label>
+                                  <div className="flex flex-col gap-2 xl:justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleAvatarUpdate(employee.id)}
+                                      disabled={savingUserId === employee.id}
+                                      className="rounded-full border border-[#ead9e8] px-4 py-3 text-xs font-medium text-[#2b2b2b] disabled:opacity-50"
+                                    >
+                                      Save photo
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleSessionPriceUpdate(employee.id)}
+                                      disabled={savingUserId === employee.id}
+                                      className="rounded-full border border-[#ead9e8] px-4 py-3 text-xs font-medium text-[#2b2b2b] disabled:opacity-50"
+                                    >
+                                      Save price
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleDeleteProfessional(employee.id, employee.name)}
+                                      disabled={savingUserId === employee.id}
+                                      className="rounded-full border border-[#f4c7c4] px-4 py-3 text-xs font-medium text-[#f56969] disabled:opacity-50"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                </div>
+                                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                                  <div className="flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleUserAction(employee.id, "approve")}
+                                    disabled={savingUserId === employee.id}
+                                    className="rounded-full border border-[#ead9e8] px-4 py-2 text-xs font-medium text-[#2b2b2b] disabled:opacity-50"
+                                  >
+                                    Approve
+                                  </button>
+                                  {employee.status === "Paused" ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleUserAction(employee.id, "reactivate")}
+                                      disabled={savingUserId === employee.id}
+                                      className="rounded-full border border-[#ead9e8] px-4 py-2 text-xs font-medium text-[#2b2b2b] disabled:opacity-50"
+                                    >
+                                      Reactivate
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleUserAction(employee.id, "suspend")}
+                                      disabled={savingUserId === employee.id}
+                                      className="rounded-full border border-[#f4c7c4] px-4 py-2 text-xs font-medium text-[#f56969] disabled:opacity-50"
+                                    >
+                                      Suspend
+                                    </button>
+                                  )}
+                                  </div>
+                                  <label className="text-xs font-medium uppercase tracking-[0.16em] text-[#7e7e7e]">
+                                    Service assignment
+                                    <select
+                                      value={employee.serviceKey}
+                                      onChange={(event) =>
+                                        void handleServiceAssignment(
+                                          employee.id,
+                                          event.target.value as
+                                            | "therapist"
+                                            | "doctor"
+                                            | "legal"
+                                            | "wellness",
+                                        )
+                                      }
+                                      className="ml-0 mt-2 block rounded-full border border-[#ead9e8] bg-white px-4 py-2 text-sm font-medium normal-case tracking-normal text-[#2b2b2b] outline-none lg:ml-3 lg:inline-flex lg:mt-0"
+                                    >
+                                      <option value="therapist">Mental Wellness</option>
+                                      <option value="doctor">Medical Consultation</option>
+                                      <option value="legal">Legal Guidance</option>
+                                      <option value="wellness">Wellness Programs</option>
+                                    </select>
+                                  </label>
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
                       </div>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <EmptyState
-                title="No employees surfaced yet"
-                description={
-                  error ||
-                  "As professional records sync cleanly through the backend and admin endpoints, your team roster will become fully manageable from here."
-                }
-              />
-            )}
-            </DashboardCard>
-          </div>
-          </div>
-
-          <DashboardCard title="Admin actions" className="lg:col-span-4" eyebrow="Playbook">
+                    ) : (
+                      <EmptyState
+                        title="No employees surfaced yet"
+                        description={
+                          error ||
+                          "As professional records sync cleanly through the backend and admin endpoints, your team roster will become fully manageable from here."
+                        }
+                      />
+                    )}
+                  </DashboardCard>
+                </div>
+            <DashboardCard title="Admin actions" className="lg:col-span-4" eyebrow="Playbook">
             <div className="space-y-4">
               <div id="manual-booking" className="rounded-[22px] bg-[#f7f5f4] p-5">
                 <IndianRupee className="h-5 w-5 text-[#f56969]" />
-                <p className="mt-3 font-semibold text-[#2b2b2b]">Create manual booking</p>
+                <p className="mt-3 font-semibold text-[#2b2b2b]">Create free manual booking</p>
+                <p className="mt-2 text-sm leading-6 text-[#7e7e7e]">
+                  Test mode is active here, so admin bookings are created as free and confirmed.
+                </p>
                 <div className="mt-4 space-y-3">
                   <select
                     value={manualBooking.clientId}
@@ -749,19 +1052,6 @@ export function AdminDashboard() {
                     }
                     className="w-full rounded-[16px] border border-[#ead9e8] bg-white px-4 py-3 text-sm text-[#2b2b2b] outline-none"
                   />
-                  <label className="flex items-center gap-2 text-sm text-[#7e7e7e]">
-                    <input
-                      type="checkbox"
-                      checked={manualBooking.sendPaymentRequest}
-                      onChange={(event) =>
-                        setManualBooking((current) => ({
-                          ...current,
-                          sendPaymentRequest: event.target.checked,
-                        }))
-                      }
-                    />
-                    Send payment request email
-                  </label>
                   <button
                     type="button"
                     onClick={() => void handleCreateManualBooking()}
@@ -773,7 +1063,7 @@ export function AdminDashboard() {
                     }
                     className="w-full rounded-full bg-[#2b2b2b] px-4 py-3 text-sm font-medium text-white disabled:opacity-50"
                   >
-                    {creatingBooking ? "Creating..." : "Create booking"}
+                    {creatingBooking ? "Creating..." : "Create free booking"}
                   </button>
                 </div>
               </div>
@@ -813,6 +1103,17 @@ export function AdminDashboard() {
                     placeholder="Phone"
                     className="w-full rounded-[16px] border border-[#ead9e8] bg-white px-4 py-3 text-sm text-[#2b2b2b] outline-none"
                   />
+                  <label className="block text-sm text-[#7e7e7e]">
+                    <span className="sr-only">Upload main profile picture</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) =>
+                        void handleNewProfessionalPhotoChange(event.target.files?.[0])
+                      }
+                      className="block w-full rounded-[16px] border border-[#ead9e8] bg-white px-4 py-3 text-sm text-[#2b2b2b] outline-none file:mr-3 file:rounded-full file:border-0 file:bg-[#f7f5f4] file:px-3 file:py-2 file:text-sm file:font-medium"
+                    />
+                  </label>
                   <input
                     value={newProfessional.specialisation}
                     onChange={(event) =>
@@ -870,8 +1171,8 @@ export function AdminDashboard() {
                 },
                 {
                   icon: IndianRupee,
-                  title: "Create new orders",
-                  text: "Manual bookings and offline payment orders can be tracked here for the operations team.",
+                  title: "Create free bookings",
+                  text: "Manual admin bookings are temporarily set to zero cost for testing and are confirmed immediately.",
                 },
                 {
                   icon: BellRing,
@@ -979,7 +1280,7 @@ export function AdminDashboard() {
           </div>
 
           <div id="admin-finance" className="lg:col-span-12">
-            <DashboardCard
+              <DashboardCard
               title={selectedBooking ? "Booking detail panel" : "Finance and governance"}
               eyebrow={selectedBooking ? "Selected booking" : "Leadership"}
             >
@@ -1070,26 +1371,26 @@ export function AdminDashboard() {
                 {
                   icon: CreditCard,
                   title: "Gross booking value",
-                  value: formatInr(revenueSnapshot.gross),
-                  note: "Total booking amount across current records.",
+                  value: formatInr(financeSnapshot.gross),
+                  note: "Total client amount across the filtered payment log.",
                 },
                 {
                   icon: IndianRupee,
                   title: "Professional payouts",
-                  value: formatInr(revenueSnapshot.professional),
-                  note: "Useful for payout planning once Razorpay settlement is wired.",
+                  value: formatInr(financeSnapshot.professional),
+                  note: "75% share after GST is removed from each filtered order.",
                 },
                 {
                   icon: ChartColumnIncreasing,
-                  title: "Completion health",
-                  value: summary?.bookings.completionRate || `${bookingInsights.completed} complete`,
-                  note: "A quick operational signal for delivery quality.",
+                  title: "THK earnings",
+                  value: formatInr(financeSnapshot.platform),
+                  note: "25% share after GST deduction across filtered orders.",
                 },
                 {
                   icon: Shield,
-                  title: "Compliance readiness",
-                  value: `${professionalUsers.filter((user) => user.profile?.verified).length} verified`,
-                  note: "Credential review and account oversight remain visible for admin.",
+                  title: "GST collected",
+                  value: formatInr(financeSnapshot.gst),
+                  note: "Tax amount separated before the 25/75 platform split.",
                 },
               ].map((item) => (
                 <div key={item.title} className="rounded-[22px] bg-[#f7f5f4] p-5">
@@ -1099,6 +1400,124 @@ export function AdminDashboard() {
                   <p className="mt-2 text-sm leading-6 text-[#7e7e7e]">{item.note}</p>
                 </div>
               ))}
+              </div>
+              <div className="mt-6 rounded-[22px] bg-[#f7f5f4] p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[#2b2b2b]">Payment split log</p>
+                    <p className="mt-1 text-sm text-[#7e7e7e]">
+                      GST is separated first, then the remaining base amount is split 25% to The
+                      Hyphen Konnect and 75% to the professional for every order.
+                    </p>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <label className="text-sm text-[#7e7e7e]">
+                      From
+                      <input
+                        type="date"
+                        value={financeDateFrom}
+                        onChange={(event) => setFinanceDateFrom(event.target.value)}
+                        className="mt-2 w-full rounded-[14px] border border-[#ead9e8] bg-white px-4 py-2.5 text-[#2b2b2b] outline-none"
+                      />
+                    </label>
+                    <label className="text-sm text-[#7e7e7e]">
+                      To
+                      <input
+                        type="date"
+                        value={financeDateTo}
+                        onChange={(event) => setFinanceDateTo(event.target.value)}
+                        className="mt-2 w-full rounded-[14px] border border-[#ead9e8] bg-white px-4 py-2.5 text-[#2b2b2b] outline-none"
+                      />
+                    </label>
+                    <label className="text-sm text-[#7e7e7e]">
+                      Sort
+                      <select
+                        value={financeSort}
+                        onChange={(event) =>
+                          setFinanceSort(
+                            event.target.value as "newest" | "oldest" | "highest" | "lowest",
+                          )
+                        }
+                        className="mt-2 w-full rounded-[14px] border border-[#ead9e8] bg-white px-4 py-2.5 text-[#2b2b2b] outline-none"
+                      >
+                        <option value="newest">Newest first</option>
+                        <option value="oldest">Oldest first</option>
+                        <option value="highest">Highest amount</option>
+                        <option value="lowest">Lowest amount</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+                <div className="mt-5 space-y-3">
+                  {financeBookings.length ? (
+                    financeBookings.map((booking) => {
+                      const professionalName =
+                        typeof booking.professionalId === "object"
+                          ? booking.professionalId?.name || "Assigned professional"
+                          : "Assigned professional";
+                      const clientName =
+                        typeof booking.clientId === "object"
+                          ? booking.clientId?.name || "Client"
+                          : "Client";
+
+                      return (
+                        <div key={booking._id} className="rounded-[18px] bg-white p-4">
+                          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                            <div>
+                              <p className="font-semibold text-[#2b2b2b]">
+                                {professionalName} with {clientName}
+                              </p>
+                              <p className="mt-1 text-sm text-[#7e7e7e]">
+                                {formatDateTime(booking.scheduledAt)}
+                              </p>
+                              <p className="mt-1 text-sm text-[#7e7e7e]">
+                                Status: {booking.status} | Payment:{" "}
+                                {booking.paymentStatus || "payment pending"}
+                              </p>
+                            </div>
+                            <div className="grid gap-2 text-sm text-[#7e7e7e] sm:grid-cols-2 xl:grid-cols-5">
+                              <div>
+                                <p className="uppercase tracking-[0.16em]">Client paid</p>
+                                <p className="mt-1 font-semibold text-[#2b2b2b]">
+                                  {formatInr(booking.totalAmount || 0)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="uppercase tracking-[0.16em]">GST</p>
+                                <p className="mt-1 font-semibold text-[#2b2b2b]">
+                                  {formatInr(booking.gstAmount || 0)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="uppercase tracking-[0.16em]">After GST</p>
+                                <p className="mt-1 font-semibold text-[#2b2b2b]">
+                                  {formatInr(booking.basePrice || 0)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="uppercase tracking-[0.16em]">THK 25%</p>
+                                <p className="mt-1 font-semibold text-[#2b2b2b]">
+                                  {formatInr(booking.platformCommission || 0)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="uppercase tracking-[0.16em]">Professional 75%</p>
+                                <p className="mt-1 font-semibold text-[#2b2b2b]">
+                                  {formatInr(booking.professionalFee || 0)}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <EmptyState
+                      title="No payment records in this range"
+                      description="Try widening the date range to inspect more order splits."
+                    />
+                  )}
+                </div>
               </div>
             </DashboardCard>
           </div>
@@ -1151,6 +1570,7 @@ export function AdminDashboard() {
               />
             )}
           </DashboardCard>
+          </div>
               </DashboardGrid>
             </section>
           </div>
