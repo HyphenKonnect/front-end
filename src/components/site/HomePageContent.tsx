@@ -973,7 +973,7 @@ export function HomePageContent() {
           </p>
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Button
-              href="/#contact"
+              href="/booking"
               size="lg"
               className="min-w-[230px] bg-white px-9 py-4 text-[16px] font-semibold text-[#f56969] shadow-[0_18px_35px_rgba(0,0,0,0.18)] hover:text-[#f56969]"
               icon={<ArrowRight className="h-5 w-5" />}
@@ -981,7 +981,7 @@ export function HomePageContent() {
               Book Your First Session
             </Button>
             <Button
-              href="/#contact"
+              href="/contact"
               variant="outline"
               size="lg"
               className="min-w-[190px] border-white px-9 py-4 text-[16px] font-semibold text-white hover:bg-white/10 hover:text-white"
