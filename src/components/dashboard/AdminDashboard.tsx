@@ -96,6 +96,15 @@ const serviceLabels = {
 } as const;
 
 const serviceOrder = ["therapist", "doctor", "legal", "wellness"] as const;
+const adminMenu = [
+  { label: "Overview", href: "#admin-overview", icon: ChartColumnIncreasing },
+  { label: "Operations", href: "#admin-operations", icon: ClipboardList },
+  { label: "Team", href: "#admin-team", icon: Users },
+  { label: "Manual booking", href: "#manual-booking", icon: IndianRupee },
+  { label: "Bookings", href: "#admin-bookings", icon: CalendarClock },
+  { label: "Finance", href: "#admin-finance", icon: CreditCard },
+  { label: "History", href: "#admin-history", icon: BellRing },
+];
 
 export function AdminDashboard() {
   const [summary, setSummary] = useState<AdminSummary | null>(null);
@@ -481,48 +490,72 @@ export function AdminDashboard() {
           </>
         }
       >
-        {error ? (
-          <StatusBanner tone="error" className="mb-6" title="Something needs attention">
-            {error}
-          </StatusBanner>
-        ) : null}
-        {successMessage ? (
-          <StatusBanner tone="success" className="mb-6" title="Updated">
-            {successMessage}
-          </StatusBanner>
-        ) : null}
-        <div className="mb-6">
-          <StatList
-            items={[
-              {
-                label: "Platform users",
-                value: String(summary?.users.total || users.length || 0),
-                note: summary
-                  ? `${summary.users.clients} clients and ${summary.users.professionals} professionals`
-                  : "Live user breakdown will populate from admin endpoints",
-              },
-              {
-                label: "Bookings in system",
-                value: String(summary?.bookings.total || bookings.length || 0),
-                note: `${bookingInsights.pending} pending and ${bookingInsights.confirmed} confirmed`,
-              },
-              {
-                label: "Payments processed",
-                value: formatInr(summary?.revenue.totalProcessed || revenueSnapshot.gross),
-                note: `${bookingInsights.paymentPending} payment records still need follow-up`,
-              },
-              {
-                label: "Platform commission",
-                value: formatInr(summary?.revenue.platformCommission || revenueSnapshot.platform),
-                note: summary
-                  ? `GST collected ${formatInr(summary.revenue.gstCollected)}`
-                  : "Finance totals expand as booking records grow",
-              },
-            ]}
-          />
-        </div>
+        <div className="grid gap-8 lg:grid-cols-[240px_1fr]">
+          <aside className="hidden lg:block">
+            <div className="sticky top-[140px] rounded-[24px] bg-white p-5 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#f56969]">
+                Admin Menu
+              </p>
+              <nav className="mt-4 space-y-2">
+                {adminMenu.map((item) => (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    className="flex items-center gap-3 rounded-[14px] px-3 py-2 text-sm font-medium text-[#2b2b2b] transition hover:bg-[#f7f5f4]"
+                  >
+                    <item.icon className="h-4 w-4 text-[#f56969]" />
+                    {item.label}
+                  </a>
+                ))}
+              </nav>
+            </div>
+          </aside>
 
-        <DashboardGrid>
+          <div className="space-y-8">
+            {error ? (
+              <StatusBanner tone="error" className="mb-6" title="Something needs attention">
+                {error}
+              </StatusBanner>
+            ) : null}
+            {successMessage ? (
+              <StatusBanner tone="success" className="mb-6" title="Updated">
+                {successMessage}
+              </StatusBanner>
+            ) : null}
+
+            <section id="admin-overview">
+              <StatList
+                items={[
+                  {
+                    label: "Platform users",
+                    value: String(summary?.users.total || users.length || 0),
+                    note: summary
+                      ? `${summary.users.clients} clients and ${summary.users.professionals} professionals`
+                      : "Live user breakdown will populate from admin endpoints",
+                  },
+                  {
+                    label: "Bookings in system",
+                    value: String(summary?.bookings.total || bookings.length || 0),
+                    note: `${bookingInsights.pending} pending and ${bookingInsights.confirmed} confirmed`,
+                  },
+                  {
+                    label: "Payments processed",
+                    value: formatInr(summary?.revenue.totalProcessed || revenueSnapshot.gross),
+                    note: `${bookingInsights.paymentPending} payment records still need follow-up`,
+                  },
+                  {
+                    label: "Platform commission",
+                    value: formatInr(summary?.revenue.platformCommission || revenueSnapshot.platform),
+                    note: summary
+                      ? `GST collected ${formatInr(summary.revenue.gstCollected)}`
+                      : "Finance totals expand as booking records grow",
+                  },
+                ]}
+              />
+            </section>
+
+            <section id="admin-operations">
+              <DashboardGrid>
           <DashboardCard title="Operations lanes" className="lg:col-span-12" eyebrow="Overview">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {[
@@ -556,7 +589,8 @@ export function AdminDashboard() {
             </div>
           </DashboardCard>
 
-          <DashboardCard title="Employee management" className="lg:col-span-8" eyebrow="Team">
+          <div id="admin-team" className="lg:col-span-8">
+            <DashboardCard title="Employee management" eyebrow="Team">
             {employeeRoster.length ? (
               <div className="space-y-4">
                 {employeeRoster.map((employee) => (
@@ -660,7 +694,9 @@ export function AdminDashboard() {
                 }
               />
             )}
-          </DashboardCard>
+            </DashboardCard>
+          </div>
+          </div>
 
           <DashboardCard title="Admin actions" className="lg:col-span-4" eyebrow="Playbook">
             <div className="space-y-4">
@@ -888,7 +924,8 @@ export function AdminDashboard() {
             </div>
           </DashboardCard>
 
-          <DashboardCard title="Bookings, payments, and appointments" className="lg:col-span-6" eyebrow="Queue">
+          <div id="admin-bookings" className="lg:col-span-6">
+            <DashboardCard title="Bookings, payments, and appointments" eyebrow="Queue">
             {upcomingAppointments.length ? (
               <div className="space-y-4">
                 {upcomingAppointments.map((booking) => {
@@ -938,13 +975,14 @@ export function AdminDashboard() {
                 description="As bookings grow, this queue will become the place where admin tracks appointment status, payment follow-up, and professional assignment in one glance."
               />
             )}
-          </DashboardCard>
+            </DashboardCard>
+          </div>
 
-          <DashboardCard
-            title={selectedBooking ? "Booking detail panel" : "Finance and governance"}
-            className="lg:col-span-12"
-            eyebrow={selectedBooking ? "Selected booking" : "Leadership"}
-          >
+          <div id="admin-finance" className="lg:col-span-12">
+            <DashboardCard
+              title={selectedBooking ? "Booking detail panel" : "Finance and governance"}
+              eyebrow={selectedBooking ? "Selected booking" : "Leadership"}
+            >
             {selectedBooking ? (
               <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
                 <div className="rounded-[22px] bg-[#f7f5f4] p-5">
@@ -1061,14 +1099,12 @@ export function AdminDashboard() {
                   <p className="mt-2 text-sm leading-6 text-[#7e7e7e]">{item.note}</p>
                 </div>
               ))}
-            </div>
-          </DashboardCard>
+              </div>
+            </DashboardCard>
+          </div>
 
-          <DashboardCard
-            title="Past and completed bookings"
-            className="lg:col-span-12"
-            eyebrow="History"
-          >
+          <div id="admin-history" className="lg:col-span-12">
+            <DashboardCard title="Past and completed bookings" eyebrow="History">
             {completedBookings.length ? (
               <div className="grid gap-4 lg:grid-cols-2">
                 {completedBookings.slice(0, 8).map((booking) => {
@@ -1115,7 +1151,10 @@ export function AdminDashboard() {
               />
             )}
           </DashboardCard>
-        </DashboardGrid>
+              </DashboardGrid>
+            </section>
+          </div>
+        </div>
       </DashboardShell>
     </ProtectedRoute>
   );
