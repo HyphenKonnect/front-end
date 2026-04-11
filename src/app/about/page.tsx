@@ -6,6 +6,20 @@ import {
   SectionTitle,
   SurfaceCard,
 } from "../../components/site/page-primitives";
+import { buildPageMetadata } from "../../lib/seo";
+
+export const metadata = buildPageMetadata({
+  title: "About Our Mental Wellness and Holistic Support Platform",
+  description:
+    "Learn about The Hyphen Konnect, our mission, leadership, and values behind our online mental wellness, medical, legal, and wellness support platform.",
+  path: "/about",
+  keywords: [
+    "about The Hyphen Konnect",
+    "mental wellness company India",
+    "holistic support platform India",
+    "online care platform mission",
+  ],
+});
 
 const team = [
   {

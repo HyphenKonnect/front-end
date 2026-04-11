@@ -1,4 +1,19 @@
 import { ProfessionalApplicationForm } from "../../components/professionals/ProfessionalApplicationForm";
+import { buildPageMetadata } from "../../lib/seo";
+
+export const metadata = buildPageMetadata({
+  title: "Join Our Therapist, Medical, Legal and Wellness Network",
+  description:
+    "Apply to join The Hyphen Konnect as a therapist, doctor, legal advisor, or wellness professional and support clients through a trusted online platform.",
+  path: "/join-professional",
+  keywords: [
+    "join therapist network",
+    "join doctor consultation platform",
+    "join legal advisor platform",
+    "join wellness coach platform",
+    "professional onboarding India",
+  ],
+});
 
 export default function JoinProfessionalPage() {
   return (

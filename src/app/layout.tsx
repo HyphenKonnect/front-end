@@ -5,18 +5,65 @@ import { AuthProvider } from "../components/auth/AuthProvider";
 import { Footer } from "../components/site/Footer";
 import { Navigation } from "../components/site/Navigation";
 import { RouteScrollReset } from "../components/site/RouteScrollReset";
+import {
+  DEFAULT_OG_IMAGE,
+  SITE_LOCALE,
+  SITE_NAME,
+  SITE_URL,
+  defaultKeywords,
+} from "../lib/seo";
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
 };
 export const metadata: Metadata = {
-  title: "The Hyphen Konnect | Mental Wellness Platform",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default:
+      "Online Mental Wellness, Medical, Legal & Wellness Support | The Hyphen Konnect",
+    template: "%s | The Hyphen Konnect",
+  },
   description:
-    "India's first holistic mental wellness platform for narcissistic abuse/trauma survivors. Connect with therapists, doctors, and legal experts.",
-  keywords: ["mental health", "therapy", "counseling", "wellness", "support"],
-  authors: [{ name: "The Hyphen Konnect" }],
-
-  robots: "index, follow",
+    "The Hyphen Konnect connects people in India with online therapists, doctors, legal advisors, and wellness experts for trusted holistic support.",
+  keywords: defaultKeywords,
+  authors: [{ name: SITE_NAME }],
+  alternates: {
+    canonical: "/",
+  },
+  icons: {
+    icon: "/brand-logo.png",
+    shortcut: "/brand-logo.png",
+    apple: "/brand-logo.png",
+  },
+  openGraph: {
+    title:
+      "Online Mental Wellness, Medical, Legal & Wellness Support | The Hyphen Konnect",
+    description:
+      "The Hyphen Konnect connects people in India with online therapists, doctors, legal advisors, and wellness experts for trusted holistic support.",
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    locale: SITE_LOCALE,
+    type: "website",
+    images: [
+      {
+        url: DEFAULT_OG_IMAGE,
+        alt: `${SITE_NAME} logo`,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title:
+      "Online Mental Wellness, Medical, Legal & Wellness Support | The Hyphen Konnect",
+    description:
+      "The Hyphen Konnect connects people in India with online therapists, doctors, legal advisors, and wellness experts for trusted holistic support.",
+    images: [DEFAULT_OG_IMAGE],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
@@ -40,7 +87,6 @@ export default function RootLayout({
           name="apple-mobile-web-app-status-bar-style"
           content="black-translucent"
         />
-        <link rel="icon" href="/favicon.ico" />
       </head>
       <body className="antialiased bg-white text-[#2b2b2b]">
         <AuthProvider>

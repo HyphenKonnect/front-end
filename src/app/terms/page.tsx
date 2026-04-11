@@ -1,4 +1,18 @@
 import { PageHero } from "../../components/site/page-primitives";
+import { buildPageMetadata } from "../../lib/seo";
+
+export const metadata = buildPageMetadata({
+  title: "Terms of Service",
+  description:
+    "Review The Hyphen Konnect platform terms, booking policies, service expectations, and support guidelines.",
+  path: "/terms",
+  keywords: [
+    "terms of service",
+    "booking policy",
+    "platform terms",
+    "service conditions",
+  ],
+});
 
 const sections = [
   {

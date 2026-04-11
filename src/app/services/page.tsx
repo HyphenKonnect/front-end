@@ -7,6 +7,21 @@ import {
   PageHero,
   SectionTitle,
 } from "../../components/site/page-primitives";
+import { buildPageMetadata } from "../../lib/seo";
+
+export const metadata = buildPageMetadata({
+  title: "Mental Wellness, Medical, Legal and Wellness Services Online",
+  description:
+    "Explore online mental wellness therapy, doctor consultations, legal guidance, and wellness programs tailored to real-life support needs.",
+  path: "/services",
+  keywords: [
+    "online therapy services",
+    "online medical consultation services",
+    "online legal guidance services",
+    "online wellness programs",
+    "holistic care services India",
+  ],
+});
 
 const benefits = [
   {

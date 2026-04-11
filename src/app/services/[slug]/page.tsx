@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import {
@@ -8,6 +9,7 @@ import {
   serviceCatalog,
 } from "../../../components/site/data";
 import { GradientCta, PageHero } from "../../../components/site/page-primitives";
+import { buildPageMetadata, serviceKeywordGroups } from "../../../lib/seo";
 
 function renderRate(rate: string) {
   const sessionMatch = rate.match(/^Rs\.?\s*([\d,]+)\s*\/\s*session$/i);
@@ -33,6 +35,34 @@ function renderRate(rate: string) {
 
 export function generateStaticParams() {
   return serviceCatalog.map((service) => ({ slug: service.slug }));
+}
+
+export async function generateMetadata(
+  props: PageProps<"/services/[slug]">,
+): Promise<Metadata> {
+  const { slug } = await props.params;
+  const service = serviceCatalog.find((item) => item.slug === slug);
+
+  if (!service) {
+    return buildPageMetadata({
+      title: "Service",
+      description: "Explore support services on The Hyphen Konnect.",
+      path: "/services",
+    });
+  }
+
+  return buildPageMetadata({
+    title: `${service.title} Online`,
+    description: `${service.description} Explore ${service.title.toLowerCase()} support, available specialists, and online booking options on The Hyphen Konnect.`,
+    path: `/services/${service.slug}`,
+    keywords: [
+      service.title,
+      service.tagline,
+      ...service.features,
+      ...(serviceKeywordGroups[service.slug as keyof typeof serviceKeywordGroups] ||
+        []),
+    ],
+  });
 }
 
 export default async function ServiceDetailPage(props: PageProps<"/services/[slug]">) {

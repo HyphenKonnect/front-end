@@ -1,4 +1,18 @@
 import { PageHero } from "../../components/site/page-primitives";
+import { buildPageMetadata } from "../../lib/seo";
+
+export const metadata = buildPageMetadata({
+  title: "Privacy Policy",
+  description:
+    "Read how The Hyphen Konnect collects, uses, and protects personal information across bookings, support, and platform services.",
+  path: "/privacy",
+  keywords: [
+    "privacy policy",
+    "health platform privacy",
+    "confidential support platform",
+    "data protection policy",
+  ],
+});
 
 const sections = [
   {
