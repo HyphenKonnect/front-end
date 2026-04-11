@@ -88,6 +88,13 @@ export type ChatMessage = {
   senderRole: "client" | "professional" | "admin";
   senderName: string;
   content: string;
+  attachment?: {
+    attachmentId: string;
+    fileName: string;
+    contentType: string;
+    fileSize: number;
+    uploadedAt: string;
+  };
   createdAt: string;
 };
 

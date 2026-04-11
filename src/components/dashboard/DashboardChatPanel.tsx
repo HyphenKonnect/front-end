@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { MessageSquare, Send } from "lucide-react";
+import { Download, MessageSquare, Paperclip, Send } from "lucide-react";
 import {
+  API_BASE_URL,
   apiFetch,
   ChatSessionRecord,
   ChatSessionSummary,
+  getStoredToken,
   parseJsonResponse,
 } from "../../lib/api";
 import { getServiceLabel } from "../../lib/booking-helpers";
@@ -27,6 +29,8 @@ export function DashboardChatPanel({
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -84,20 +88,73 @@ export function DashboardChatPanel({
   );
 
   const handleSend = async () => {
-    if (!selectedBookingId || !draft.trim()) return;
+    if (!selectedBookingId || (!draft.trim() && !selectedFile)) return;
 
     try {
       setSending(true);
+      setAttachmentError(null);
+
+      const attachment = selectedFile ? await readFileAsAttachment(selectedFile) : undefined;
       const response = await apiFetch(`/api/chat/sessions/${selectedBookingId}/messages`, {
         method: "POST",
-        body: JSON.stringify({ content: draft.trim() }),
+        body: JSON.stringify({
+          content: draft.trim(),
+          ...(attachment ? { attachment } : {}),
+        }),
       });
       const data = await parseJsonResponse<ChatSessionRecord>(response);
       setSelectedSession(data);
       setDraft("");
+      setSelectedFile(null);
     } finally {
       setSending(false);
     }
+  };
+
+  const handleAttachmentChange = (file?: File | null) => {
+    if (!file) {
+      setSelectedFile(null);
+      setAttachmentError(null);
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setSelectedFile(null);
+      setAttachmentError("Please upload a file smaller than 5 MB.");
+      return;
+    }
+
+    setSelectedFile(file);
+    setAttachmentError(null);
+  };
+
+  const handleDownloadAttachment = async (attachmentId: string) => {
+    if (!selectedBookingId) return;
+
+    const token = getStoredToken();
+    const response = await fetch(
+      `${API_BASE_URL}/api/chat/sessions/${selectedBookingId}/attachments/${attachmentId}`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      },
+    );
+
+    if (!response.ok) {
+      const message = await response.text().catch(() => "");
+      throw new Error(message || "We could not download that file.");
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    const contentDisposition = response.headers.get("Content-Disposition") || "";
+    const fileNameMatch = contentDisposition.match(/filename="(.+)"/);
+    anchor.href = url;
+    anchor.download = fileNameMatch?.[1] || "attachment";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
   };
 
   return (
@@ -185,6 +242,16 @@ export function DashboardChatPanel({
                     <p className="mt-2 text-sm leading-6 text-[#5f5f5f]">
                       {message.content}
                     </p>
+                    {message.attachment ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleDownloadAttachment(message.attachment!.attachmentId)}
+                        className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#ead9e8] bg-white px-3 py-2 text-xs font-medium text-[#2b2b2b]"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        {message.attachment.fileName}
+                      </button>
+                    ) : null}
                   </div>
                 ))
               ) : (
@@ -195,23 +262,50 @@ export function DashboardChatPanel({
               )}
             </div>
 
-            <div className="mt-4 flex gap-3">
-              <textarea
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                rows={3}
-                placeholder="Write a message..."
-                className="flex-1 rounded-[18px] border border-[#ead9e8] bg-white px-4 py-3 text-sm text-[#2b2b2b] outline-none"
-              />
-              <button
-                type="button"
-                onClick={() => void handleSend()}
-                disabled={sending || !draft.trim()}
-                className="inline-flex h-fit items-center gap-2 rounded-full bg-[#2b2b2b] px-4 py-3 text-sm font-medium text-white disabled:opacity-50"
-              >
-                <Send className="h-4 w-4" />
-                {sending ? "Sending..." : "Send"}
-              </button>
+            <div className="mt-4 space-y-3">
+              <div className="flex flex-col gap-3 lg:flex-row">
+                <textarea
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  rows={3}
+                  placeholder="Write a message..."
+                  className="flex-1 rounded-[18px] border border-[#ead9e8] bg-white px-4 py-3 text-sm text-[#2b2b2b] outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleSend()}
+                  disabled={sending || (!draft.trim() && !selectedFile)}
+                  className="inline-flex h-fit items-center justify-center gap-2 rounded-full bg-[#2b2b2b] px-4 py-3 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  <Send className="h-4 w-4" />
+                  {sending ? "Sending..." : "Send"}
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[#ead9e8] bg-white px-4 py-2 text-sm font-medium text-[#2b2b2b]">
+                  <Paperclip className="h-4 w-4" />
+                  {selectedFile ? "Change file" : "Attach file"}
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp"
+                    onChange={(event) => handleAttachmentChange(event.target.files?.[0])}
+                    className="hidden"
+                  />
+                </label>
+                {selectedFile ? (
+                  <p className="text-xs text-[#7e7e7e]">
+                    Ready to send: {selectedFile.name} ({Math.ceil(selectedFile.size / 1024)} KB)
+                  </p>
+                ) : (
+                  <p className="text-xs text-[#7e7e7e]">
+                    PDF, DOC, DOCX, JPG, PNG, WEBP up to 5 MB
+                  </p>
+                )}
+              </div>
+              {attachmentError ? (
+                <p className="text-xs text-[#f56969]">{attachmentError}</p>
+              ) : null}
             </div>
           </>
         ) : (
@@ -223,4 +317,19 @@ export function DashboardChatPanel({
       </div>
     </div>
   );
+}
+
+async function readFileAsAttachment(file: File) {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.onerror = () => reject(new Error("Could not read the selected file."));
+    reader.readAsDataURL(file);
+  });
+
+  return {
+    fileName: file.name,
+    contentType: file.type || "application/octet-stream",
+    dataUrl,
+  };
 }

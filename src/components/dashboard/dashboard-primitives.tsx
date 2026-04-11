@@ -44,16 +44,21 @@ export function DashboardGrid({ children }: { children: ReactNode }) {
 export function DashboardCard({
   title,
   eyebrow,
+  sectionId,
   className = "",
   children,
 }: {
   title: string;
   eyebrow?: string;
+  sectionId?: string;
   className?: string;
   children: ReactNode;
 }) {
   return (
-    <div className={`rounded-[28px] bg-white p-7 shadow-sm ${className}`}>
+    <div
+      id={sectionId}
+      className={`scroll-mt-32 rounded-[28px] bg-white p-7 shadow-sm ${className}`}
+    >
       {eyebrow ? (
         <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#f56969]">
           {eyebrow}

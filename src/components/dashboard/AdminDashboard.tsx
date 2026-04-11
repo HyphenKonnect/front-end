@@ -901,164 +901,189 @@ export function AdminDashboard() {
                   <DashboardCard title="Employee management" eyebrow="Team">
                     {employeeRoster.length ? (
                       <div className="space-y-4">
-                        {employeeRoster.map((employee) => (
-                          <div
-                            key={employee.id}
-                            className="rounded-[24px] bg-[#f7f5f4] p-5"
-                          >
-                            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                              <div className="flex gap-4">
-                                <img
-                                  src={employee.avatar}
-                                  alt={`${employee.name} profile`}
-                                  className="h-16 w-16 rounded-[20px] object-cover"
-                                />
-                                <div>
-                                  <div className="flex flex-wrap items-center gap-3">
-                                    <p className="text-lg font-semibold text-[#2b2b2b]">{employee.name}</p>
-                                    <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[#f56969]">
-                                      {employee.service}
-                                    </span>
-                                    <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[#2b2b2b]">
-                                      {employee.verification}
-                                    </span>
-                                  </div>
-                                  <p className="mt-2 text-sm text-[#7e7e7e]">{employee.specialty}</p>
-                                  <p className="mt-1 text-sm text-[#7e7e7e]">{employee.email}</p>
-                                </div>
-                              </div>
-                              <div className="grid gap-2 text-sm text-[#7e7e7e] sm:grid-cols-3">
-                                <div className="rounded-[18px] bg-white px-4 py-3">
-                                  <p className="text-xs uppercase tracking-[0.18em]">Rate</p>
-                                  <p className="mt-2 font-medium text-[#2b2b2b]">{employee.rate}</p>
-                                </div>
-                                <div className="rounded-[18px] bg-white px-4 py-3">
-                                  <p className="text-xs uppercase tracking-[0.18em]">Experience</p>
-                                  <p className="mt-2 font-medium text-[#2b2b2b]">{employee.experience}</p>
-                                </div>
-                                <div className="rounded-[18px] bg-white px-4 py-3">
-                                  <p className="text-xs uppercase tracking-[0.18em]">Status</p>
-                                  <p className="mt-2 font-medium text-[#2b2b2b]">{employee.status}</p>
-                                </div>
-                              </div>
-                            </div>
-                            {users.find((user) => user._id === employee.id)?.role === "professional" ? (
-                              <div className="mt-4 space-y-3 border-t border-[#ead9e8] pt-4">
-                                <div className="grid gap-3 xl:grid-cols-[1.15fr_0.85fr_auto]">
-                                  <label className="block text-xs font-medium uppercase tracking-[0.16em] text-[#7e7e7e]">
-                                    Upload main profile picture
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      onChange={(event) =>
-                                        void handleAvatarFileChange(
-                                          employee.id,
-                                          event.target.files?.[0],
-                                        )
-                                      }
-                                      className="mt-2 block w-full rounded-[16px] border border-[#ead9e8] bg-white px-4 py-3 text-sm font-normal normal-case tracking-normal text-[#2b2b2b] outline-none file:mr-3 file:rounded-full file:border-0 file:bg-[#f7f5f4] file:px-3 file:py-2 file:text-sm file:font-medium"
-                                    />
-                                  </label>
-                                  <label className="block text-xs font-medium uppercase tracking-[0.16em] text-[#7e7e7e]">
-                                    Session price
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      value={priceDrafts[employee.id] ?? employee.sessionPriceValue}
-                                      onChange={(event) =>
-                                        setPriceDrafts((current) => ({
-                                          ...current,
-                                          [employee.id]: event.target.value,
-                                        }))
-                                      }
-                                      placeholder="0"
-                                      className="mt-2 w-full rounded-[16px] border border-[#ead9e8] bg-white px-4 py-3 text-sm font-normal normal-case tracking-normal text-[#2b2b2b] outline-none"
-                                    />
-                                  </label>
-                                  <div className="flex flex-col gap-2 xl:justify-end">
-                                    <button
-                                      type="button"
-                                      onClick={() => void handleAvatarUpdate(employee.id)}
-                                      disabled={savingUserId === employee.id}
-                                      className="rounded-full border border-[#ead9e8] px-4 py-3 text-xs font-medium text-[#2b2b2b] disabled:opacity-50"
-                                    >
-                                      Save photo
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => void handleSessionPriceUpdate(employee.id)}
-                                      disabled={savingUserId === employee.id}
-                                      className="rounded-full border border-[#ead9e8] px-4 py-3 text-xs font-medium text-[#2b2b2b] disabled:opacity-50"
-                                    >
-                                      Save price
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => void handleDeleteProfessional(employee.id, employee.name)}
-                                      disabled={savingUserId === employee.id}
-                                      className="rounded-full border border-[#f4c7c4] px-4 py-3 text-xs font-medium text-[#f56969] disabled:opacity-50"
-                                    >
-                                      Delete
-                                    </button>
+                        {employeeRoster.map((employee) => {
+                          const isProfessional =
+                            users.find((user) => user._id === employee.id)?.role === "professional";
+                          const isSaving = savingUserId === employee.id;
+                          const isPaused = employee.status === "Paused";
+
+                          return (
+                            <article
+                              key={employee.id}
+                              className="rounded-[28px] bg-[#f7f5f4] p-5 sm:p-6"
+                            >
+                              <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.95fr)] xl:items-start">
+                                <div className="flex gap-4 sm:gap-5">
+                                  <img
+                                    src={employee.avatar}
+                                    alt={`${employee.name} profile`}
+                                    className="h-16 w-16 rounded-[20px] object-cover sm:h-20 sm:w-20"
+                                  />
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2.5">
+                                      <p className="text-xl font-semibold tracking-[-0.02em] text-[#2b2b2b]">
+                                        {employee.name}
+                                      </p>
+                                      <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[#f56969]">
+                                        {employee.service}
+                                      </span>
+                                      <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[#2b2b2b]">
+                                        {employee.verification}
+                                      </span>
+                                    </div>
+                                    <p className="mt-2 text-sm leading-6 text-[#6f6f6f]">
+                                      {employee.specialty}
+                                    </p>
+                                    <p className="text-sm leading-6 text-[#7e7e7e] break-all">
+                                      {employee.email}
+                                    </p>
                                   </div>
                                 </div>
-                                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                                  <div className="flex flex-wrap gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => void handleUserAction(employee.id, "approve")}
-                                    disabled={savingUserId === employee.id}
-                                    className="rounded-full border border-[#ead9e8] px-4 py-2 text-xs font-medium text-[#2b2b2b] disabled:opacity-50"
-                                  >
-                                    Approve
-                                  </button>
-                                  {employee.status === "Paused" ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => void handleUserAction(employee.id, "reactivate")}
-                                      disabled={savingUserId === employee.id}
-                                      className="rounded-full border border-[#ead9e8] px-4 py-2 text-xs font-medium text-[#2b2b2b] disabled:opacity-50"
-                                    >
-                                      Reactivate
-                                    </button>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => void handleUserAction(employee.id, "suspend")}
-                                      disabled={savingUserId === employee.id}
-                                      className="rounded-full border border-[#f4c7c4] px-4 py-2 text-xs font-medium text-[#f56969] disabled:opacity-50"
-                                    >
-                                      Suspend
-                                    </button>
-                                  )}
-                                  </div>
-                                  <label className="text-xs font-medium uppercase tracking-[0.16em] text-[#7e7e7e]">
-                                    Service assignment
-                                    <select
-                                      value={employee.serviceKey}
-                                      onChange={(event) =>
-                                        void handleServiceAssignment(
-                                          employee.id,
-                                          event.target.value as
-                                            | "therapist"
-                                            | "doctor"
-                                            | "legal"
-                                            | "wellness",
-                                        )
-                                      }
-                                      className="ml-0 mt-2 block rounded-full border border-[#ead9e8] bg-white px-4 py-2 text-sm font-medium normal-case tracking-normal text-[#2b2b2b] outline-none lg:ml-3 lg:inline-flex lg:mt-0"
-                                    >
-                                      <option value="therapist">Mental Wellness</option>
-                                      <option value="doctor">Medical Consultation</option>
-                                      <option value="legal">Legal Guidance</option>
-                                      <option value="wellness">Wellness Programs</option>
-                                    </select>
-                                  </label>
+
+                                <div className="grid gap-3 sm:grid-cols-3">
+                                  {[
+                                    { label: "Rate", value: employee.rate },
+                                    { label: "Experience", value: employee.experience },
+                                    { label: "Status", value: employee.status },
+                                  ].map((stat) => (
+                                    <div key={stat.label} className="rounded-[20px] bg-white px-5 py-4">
+                                      <p className="text-[11px] uppercase tracking-[0.22em] text-[#8e7f7f]">
+                                        {stat.label}
+                                      </p>
+                                      <p className="mt-2 text-base font-semibold leading-7 text-[#2b2b2b]">
+                                        {stat.value}
+                                      </p>
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
-                            ) : null}
-                          </div>
-                        ))}
+
+                              {isProfessional ? (
+                                <div className="mt-5 border-t border-[#ead9e8] pt-5">
+                                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(240px,0.8fr)_auto] xl:items-end">
+                                    <label className="block text-xs font-medium uppercase tracking-[0.18em] text-[#7e7e7e]">
+                                      Upload main profile picture
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(event) =>
+                                          void handleAvatarFileChange(
+                                            employee.id,
+                                            event.target.files?.[0],
+                                          )
+                                        }
+                                        className="mt-3 block w-full rounded-[18px] border border-[#ead9e8] bg-white px-4 py-3 text-sm font-normal normal-case tracking-normal text-[#2b2b2b] outline-none file:mr-3 file:rounded-full file:border-0 file:bg-[#f7f5f4] file:px-4 file:py-2.5 file:text-sm file:font-medium"
+                                      />
+                                    </label>
+
+                                    <label className="block text-xs font-medium uppercase tracking-[0.18em] text-[#7e7e7e]">
+                                      Session price
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        value={priceDrafts[employee.id] ?? employee.sessionPriceValue}
+                                        onChange={(event) =>
+                                          setPriceDrafts((current) => ({
+                                            ...current,
+                                            [employee.id]: event.target.value,
+                                          }))
+                                        }
+                                        placeholder="0"
+                                        className="mt-3 w-full rounded-[18px] border border-[#ead9e8] bg-white px-4 py-3 text-base font-medium normal-case tracking-normal text-[#2b2b2b] outline-none"
+                                      />
+                                    </label>
+
+                                    <div className="flex flex-col gap-2 sm:flex-row xl:flex-col">
+                                      <button
+                                        type="button"
+                                        onClick={() => void handleAvatarUpdate(employee.id)}
+                                        disabled={isSaving}
+                                        className="rounded-full border border-[#ead9e8] bg-white px-5 py-3 text-sm font-medium text-[#2b2b2b] transition hover:bg-[#fdfafa] disabled:opacity-50"
+                                      >
+                                        Save photo
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => void handleSessionPriceUpdate(employee.id)}
+                                        disabled={isSaving}
+                                        className="rounded-full border border-[#ead9e8] bg-white px-5 py-3 text-sm font-medium text-[#2b2b2b] transition hover:bg-[#fdfafa] disabled:opacity-50"
+                                      >
+                                        Save price
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          void handleDeleteProfessional(employee.id, employee.name)
+                                        }
+                                        disabled={isSaving}
+                                        className="rounded-full border border-[#f4c7c4] bg-white px-5 py-3 text-sm font-medium text-[#f56969] transition hover:bg-[#fff7f7] disabled:opacity-50"
+                                      >
+                                        Delete
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="mt-4 grid gap-4 xl:grid-cols-[auto_minmax(260px,1fr)] xl:items-end xl:justify-between">
+                                    <div className="flex flex-wrap gap-2.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => void handleUserAction(employee.id, "approve")}
+                                        disabled={isSaving}
+                                        className="rounded-full border border-[#ead9e8] bg-white px-5 py-2.5 text-sm font-medium text-[#2b2b2b] transition hover:bg-[#fdfafa] disabled:opacity-50"
+                                      >
+                                        Approve
+                                      </button>
+                                      {isPaused ? (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            void handleUserAction(employee.id, "reactivate")
+                                          }
+                                          disabled={isSaving}
+                                          className="rounded-full border border-[#ead9e8] bg-white px-5 py-2.5 text-sm font-medium text-[#2b2b2b] transition hover:bg-[#fdfafa] disabled:opacity-50"
+                                        >
+                                          Reactivate
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => void handleUserAction(employee.id, "suspend")}
+                                          disabled={isSaving}
+                                          className="rounded-full border border-[#f4c7c4] bg-white px-5 py-2.5 text-sm font-medium text-[#f56969] transition hover:bg-[#fff7f7] disabled:opacity-50"
+                                        >
+                                          Suspend
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    <label className="block text-xs font-medium uppercase tracking-[0.18em] text-[#7e7e7e]">
+                                      Service assignment
+                                      <select
+                                        value={employee.serviceKey}
+                                        onChange={(event) =>
+                                          void handleServiceAssignment(
+                                            employee.id,
+                                            event.target.value as
+                                              | "therapist"
+                                              | "doctor"
+                                              | "legal"
+                                              | "wellness",
+                                          )
+                                        }
+                                        className="mt-3 block w-full rounded-full border border-[#ead9e8] bg-white px-5 py-3 text-base font-medium normal-case tracking-normal text-[#2b2b2b] outline-none"
+                                      >
+                                        <option value="therapist">Mental Wellness</option>
+                                        <option value="doctor">Medical Consultation</option>
+                                        <option value="legal">Legal Guidance</option>
+                                        <option value="wellness">Wellness Programs</option>
+                                      </select>
+                                    </label>
+                                  </div>
+                                </div>
+                              ) : null}
+                            </article>
+                          );
+                        })}
                       </div>
                     ) : (
                       <EmptyState

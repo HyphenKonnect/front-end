@@ -2,7 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { BadgeCheck, CalendarClock, Clock, IndianRupee, UserRound } from "lucide-react";
+import {
+  BadgeCheck,
+  CalendarClock,
+  Clock,
+  IndianRupee,
+  KeyRound,
+  MessageSquare,
+  ReceiptText,
+  UserRound,
+} from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { ProtectedRoute } from "../auth/ProtectedRoute";
 import { apiFetch, parseJsonResponse } from "../../lib/api";
@@ -85,6 +94,12 @@ const weekdayLabels = [
 
 type DaySlot = { start: string; end: string; confirmed?: boolean };
 type DayAvailability = { start: string; end: string; slots: DaySlot[] };
+type NavSection = {
+  id: string;
+  label: string;
+  description: string;
+  icon: typeof CalendarClock;
+};
 
 function normaliseDayWindow(slot?: {
   start?: string;
@@ -329,6 +344,7 @@ export function ProfessionalDashboard() {
   >("newest");
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [actionBookingId, setActionBookingId] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState("schedule");
   const [savingProfile, setSavingProfile] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [profileForm, setProfileForm] = useState({
@@ -643,6 +659,50 @@ export function ProfessionalDashboard() {
     upcoming.find((booking) => booking._id === selectedBookingId) ||
     upcoming[0] ||
     null;
+  const navSections: NavSection[] = [
+    {
+      id: "schedule",
+      label: "Schedule",
+      description: "Upcoming sessions and current booking details",
+      icon: CalendarClock,
+    },
+    {
+      id: "history",
+      label: "History",
+      description: "Past and completed client sessions",
+      icon: Clock,
+    },
+    {
+      id: "earnings",
+      label: "Earnings",
+      description: "Payout snapshots and payment split logs",
+      icon: ReceiptText,
+    },
+    {
+      id: "profile",
+      label: "Profile",
+      description: "Public profile details and credentials",
+      icon: UserRound,
+    },
+    {
+      id: "availability",
+      label: "Availability",
+      description: "Working hours, blocked dates, and special days",
+      icon: BadgeCheck,
+    },
+    {
+      id: "security",
+      label: "Security",
+      description: "Password and account access controls",
+      icon: KeyRound,
+    },
+    {
+      id: "messages",
+      label: "Messages",
+      description: "Session conversations with clients",
+      icon: MessageSquare,
+    },
+  ];
   const completedBookings = useMemo(
     () => bookings.filter((item) => ["completed", "cancelled"].includes(item.status)),
     [bookings],
@@ -651,6 +711,36 @@ export function ProfessionalDashboard() {
     Boolean(specialDateForm.date) &&
     (specialDateForm.type !== "special_hours" ||
       Boolean(specialDateForm.start && specialDateForm.end));
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const sections = navSections
+      .map((section) => document.getElementById(section.id))
+      .filter((section): section is HTMLElement => Boolean(section));
+
+    if (!sections.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
+
+        if (visible?.target?.id) {
+          setActiveSection(visible.target.id);
+        }
+      },
+      {
+        rootMargin: "-20% 0px -60% 0px",
+        threshold: [0.2, 0.4, 0.6],
+      },
+    );
+
+    sections.forEach((section) => observer.observe(section));
+
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <ProtectedRoute allowedRoles={["professional"]}>
@@ -712,12 +802,57 @@ export function ProfessionalDashboard() {
           />
         </div>
 
-        <DashboardGrid>
-          <DashboardCard
-            title="Upcoming clients"
-            className="lg:col-span-7"
-            eyebrow="Schedule"
-          >
+        <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+          <aside className="xl:sticky xl:top-32 xl:self-start">
+            <div className="rounded-[28px] bg-[#2b2b2b] p-3 text-white shadow-sm sm:p-4 xl:max-h-[calc(100vh-9rem)] xl:overflow-y-auto xl:p-4">
+              <nav
+                className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 xl:mx-0 xl:block xl:space-y-1.5 xl:overflow-visible xl:px-0 xl:pb-0"
+                aria-label="Professional dashboard sections"
+              >
+                {navSections.map((section) => {
+                  const isActive = activeSection === section.id;
+                  return (
+                    <a
+                      key={section.id}
+                      href={`#${section.id}`}
+                      onClick={() => setActiveSection(section.id)}
+                      className={`min-w-[190px] shrink-0 rounded-[18px] border px-3.5 py-2.5 transition xl:block xl:min-w-0 ${
+                        isActive
+                          ? "border-[#fcb4b3] bg-white text-[#2b2b2b]"
+                          : "border-white/10 bg-white/5 text-white hover:border-white/20 hover:bg-white/10"
+                      }`}
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <section.icon
+                          className={`mt-0.5 h-4 w-4 shrink-0 ${
+                            isActive ? "text-[#f56969]" : "text-white/70"
+                          }`}
+                        />
+                        <div className="min-w-0">
+                          <p className="text-[15px] font-semibold leading-5">{section.label}</p>
+                          <p
+                            className={`mt-0.5 line-clamp-2 text-[11px] leading-4 ${
+                              isActive ? "text-[#7e7e7e]" : "text-white/60"
+                            }`}
+                          >
+                            {section.description}
+                          </p>
+                        </div>
+                      </div>
+                    </a>
+                  );
+                })}
+              </nav>
+            </div>
+          </aside>
+
+          <DashboardGrid>
+            <DashboardCard
+              title="Upcoming clients"
+              sectionId="schedule"
+              className="lg:col-span-7"
+              eyebrow="Schedule"
+            >
             {upcoming.length ? (
               <div className="space-y-4">
                 {upcoming.slice(0, 6).map((booking) => {
@@ -912,6 +1047,7 @@ export function ProfessionalDashboard() {
 
           <DashboardCard
             title="Past and completed sessions"
+            sectionId="history"
             className="lg:col-span-12"
             eyebrow="History"
           >
@@ -962,6 +1098,7 @@ export function ProfessionalDashboard() {
 
           <DashboardCard
             title="Payment split log"
+            sectionId="earnings"
             className="lg:col-span-12"
             eyebrow="Earnings"
           >
@@ -1115,6 +1252,7 @@ export function ProfessionalDashboard() {
 
           <DashboardCard
             title="Profile editor"
+            sectionId="profile"
             className="lg:col-span-7"
             eyebrow="Self management"
           >
@@ -1244,6 +1382,7 @@ export function ProfessionalDashboard() {
 
           <DashboardCard
             title="Availability manager"
+            sectionId="availability"
             className="lg:col-span-5"
             eyebrow="Calendar setup"
           >
@@ -1287,62 +1426,66 @@ export function ProfessionalDashboard() {
                       return (
                         <div
                           key={`${day}-slot-${index}`}
-                          className="grid grid-cols-[1fr_1fr_auto] items-center gap-2"
+                          className="flex flex-wrap items-center gap-2"
                         >
-                          <CustomTimePicker
-                            value={slot.start}
-                            min={minStart || undefined}
-                            max={maxStart}
-                            disabled={index > 0 && !minStart}
-                            onChange={(nextValue) => {
-                              const nextMinEnd = getMinEndTime(nextValue, 30);
-                              setAvailabilityForm((current) => {
-                                const nextSlots = current[day].slots.length
-                                  ? current[day].slots.map((item, slotIndex) =>
-                                      slotIndex === index
-                                        ? {
-                                            ...item,
-                                            start: nextValue,
-                                            confirmed: false,
-                                            end:
-                                              item.end &&
-                                              nextMinEnd &&
-                                              item.end <= nextMinEnd
-                                                ? ""
-                                                : item.end,
-                                          }
-                                        : item,
-                                    )
-                                  : [{ start: nextValue, end: "", confirmed: false }];
-                                return {
-                                  ...current,
-                                  [day]: { ...current[day], slots: nextSlots },
-                                };
-                              });
-                            }}
-                          />
-                          <CustomTimePicker
-                            value={slot.end}
-                            min={minEnd || undefined}
-                            max="23:59"
-                            disabled={!slot.start || !minEnd}
-                            onChange={(nextValue) =>
-                              setAvailabilityForm((current) => {
-                                const nextSlots = current[day].slots.length
-                                  ? current[day].slots.map((item, slotIndex) =>
-                                      slotIndex === index
-                                        ? { ...item, end: nextValue, confirmed: false }
-                                        : item,
-                                    )
-                                  : [{ start: slot.start, end: nextValue, confirmed: false }];
-                                return {
-                                  ...current,
-                                  [day]: { ...current[day], slots: nextSlots },
-                                };
-                              })
-                            }
-                          />
-                          <div className="flex items-center gap-2">
+                          <div className="w-[90px] shrink-0">
+                            <CustomTimePicker
+                              value={slot.start}
+                              min={minStart || undefined}
+                              max={maxStart}
+                              disabled={index > 0 && !minStart}
+                              onChange={(nextValue) => {
+                                const nextMinEnd = getMinEndTime(nextValue, 30);
+                                setAvailabilityForm((current) => {
+                                  const nextSlots = current[day].slots.length
+                                    ? current[day].slots.map((item, slotIndex) =>
+                                        slotIndex === index
+                                          ? {
+                                              ...item,
+                                              start: nextValue,
+                                              confirmed: false,
+                                              end:
+                                                item.end &&
+                                                nextMinEnd &&
+                                                item.end <= nextMinEnd
+                                                  ? ""
+                                                  : item.end,
+                                            }
+                                          : item,
+                                      )
+                                    : [{ start: nextValue, end: "", confirmed: false }];
+                                  return {
+                                    ...current,
+                                    [day]: { ...current[day], slots: nextSlots },
+                                  };
+                                });
+                              }}
+                            />
+                          </div>
+                          <div className="w-[90px] shrink-0">
+                            <CustomTimePicker
+                              value={slot.end}
+                              min={minEnd || undefined}
+                              max="23:59"
+                              disabled={!slot.start || !minEnd}
+                              onChange={(nextValue) =>
+                                setAvailabilityForm((current) => {
+                                  const nextSlots = current[day].slots.length
+                                    ? current[day].slots.map((item, slotIndex) =>
+                                        slotIndex === index
+                                          ? { ...item, end: nextValue, confirmed: false }
+                                          : item,
+                                      )
+                                    : [{ start: slot.start, end: nextValue, confirmed: false }];
+                                  return {
+                                    ...current,
+                                    [day]: { ...current[day], slots: nextSlots },
+                                  };
+                                })
+                              }
+                            />
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
                             {!slot.confirmed ? (
                               <button
                                 type="button"
@@ -1362,12 +1505,12 @@ export function ProfessionalDashboard() {
                                     };
                                   })
                                 }
-                                className="rounded-full bg-[#f56969] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                                className="rounded-full bg-[#f56969] px-3 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50"
                               >
                                 Confirm
                               </button>
                             ) : (
-                              <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#2b2b2b]">
+                              <span className="rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-[#2b2b2b]">
                                 Confirmed
                               </span>
                             )}
@@ -1389,7 +1532,7 @@ export function ProfessionalDashboard() {
                                   };
                                 })
                               }
-                              className="rounded-full border border-[#ead9e8] bg-white px-3 py-1.5 text-xs font-medium text-[#2b2b2b]"
+                              className="rounded-full border border-[#f4c7c4] bg-white px-3 py-1.5 text-[11px] font-medium text-[#f56969]"
                             >
                               Remove
                             </button>
@@ -1418,7 +1561,7 @@ export function ProfessionalDashboard() {
                           };
                         })
                       }
-                      className="rounded-full border border-[#2b2b2b] bg-white px-3 py-1.5 text-xs font-semibold text-[#2b2b2b]"
+                      className="rounded-full border border-[#2b2b2b] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[#2b2b2b]"
                     >
                       Add time window
                     </button>
@@ -1434,11 +1577,11 @@ export function ProfessionalDashboard() {
                           setHolidayFlashDay((current) => (current === day ? null : current));
                         }, 2200);
                       }}
-                      className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                      className={`rounded-full px-3 py-1.5 text-[11px] font-semibold ${
                         !availabilityForm[day].start &&
                         !availabilityForm[day].end &&
                         availabilityForm[day].slots.length === 0
-                          ? "bg-[#f56969] text-white"
+                          ? "bg-gradient-to-r from-[#f5912d] via-[#f56969] to-[#e6b9e6] text-white"
                           : "border border-[#ead9e8] bg-white text-[#2b2b2b]"
                       }`}
                     >
@@ -1452,7 +1595,7 @@ export function ProfessionalDashboard() {
                           [day]: { start: "09:00", end: "17:00", slots: [] },
                         }))
                       }
-                      className="rounded-full border border-[#ead9e8] bg-white px-3 py-1.5 text-xs font-medium text-[#2b2b2b]"
+                      className="rounded-full border border-[#ead9e8] bg-white px-2.5 py-1.5 text-[11px] font-medium text-[#2b2b2b]"
                     >
                       Use 9:00-17:00
                     </button>
@@ -1676,6 +1819,7 @@ export function ProfessionalDashboard() {
 
           <DashboardCard
             title="Password & security"
+            sectionId="security"
             className="lg:col-span-5"
             eyebrow="Account access"
           >
@@ -1740,6 +1884,7 @@ export function ProfessionalDashboard() {
 
           <DashboardCard
             title="Messages"
+            sectionId="messages"
             className="lg:col-span-12"
             eyebrow="Client communication"
           >
@@ -1749,7 +1894,8 @@ export function ProfessionalDashboard() {
               emptyDescription="Client conversations will appear here once a booking chat is opened."
             />
           </DashboardCard>
-        </DashboardGrid>
+          </DashboardGrid>
+        </div>
       </DashboardShell>
     </ProtectedRoute>
   );

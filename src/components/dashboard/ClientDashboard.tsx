@@ -3,7 +3,14 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CalendarDays, CreditCard, MessageSquare, Receipt, Video } from "lucide-react";
+import {
+  CalendarDays,
+  Clock3,
+  CreditCard,
+  MessageSquare,
+  Receipt,
+  Video,
+} from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { ProtectedRoute } from "../auth/ProtectedRoute";
 import { apiFetch, parseJsonResponse } from "../../lib/api";
@@ -80,6 +87,40 @@ type PaymentHistoryRecord = {
   };
 };
 
+type ClientNavSection = {
+  id: string;
+  label: string;
+  description: string;
+  icon: typeof CalendarDays;
+};
+
+const clientNavSections: ClientNavSection[] = [
+  {
+    id: "appointments",
+    label: "Schedule",
+    description: "Upcoming sessions and current booking details",
+    icon: CalendarDays,
+  },
+  {
+    id: "billing",
+    label: "Payments",
+    description: "Invoices, captured payments, and checkout follow-up",
+    icon: CreditCard,
+  },
+  {
+    id: "history",
+    label: "History",
+    description: "Past and completed client sessions",
+    icon: Clock3,
+  },
+  {
+    id: "messages",
+    label: "Messages",
+    description: "Conversation and document exchange with your professional",
+    icon: MessageSquare,
+  },
+];
+
 export function ClientDashboard() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -99,6 +140,7 @@ export function ClientDashboard() {
     order?: RazorpayOrderPayload;
     error?: string;
   } | null>(null);
+  const [activeSection, setActiveSection] = useState("appointments");
 
   useEffect(() => {
     void loadRazorpayScript();
@@ -179,6 +221,36 @@ export function ClientDashboard() {
 
     void handleCreatePaymentOrder(selectedBookingId);
   }, [bookings, paymentState?.bookingId, selectedBookingId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const sections = clientNavSections
+      .map((section) => document.getElementById(section.id))
+      .filter((section): section is HTMLElement => Boolean(section));
+
+    if (!sections.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
+
+        if (visible?.target?.id) {
+          setActiveSection(visible.target.id);
+        }
+      },
+      {
+        rootMargin: "-20% 0px -60% 0px",
+        threshold: [0.2, 0.4, 0.6],
+      },
+    );
+
+    sections.forEach((section) => observer.observe(section));
+
+    return () => observer.disconnect();
+  }, []);
 
   const refreshBookings = async () => {
     const [bookingsResponse, paymentsResponse] = await Promise.all([
@@ -411,12 +483,58 @@ export function ClientDashboard() {
           />
         </div>
 
-        <DashboardGrid>
-          <DashboardCard
-            title="Your appointments"
-            className="lg:col-span-8"
-            eyebrow="Bookings"
-          >
+        <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+          <aside className="xl:sticky xl:top-32 xl:self-start">
+            <div className="rounded-[28px] bg-[#2b2b2b] p-3 text-white shadow-sm sm:p-4 xl:max-h-[calc(100vh-9rem)] xl:overflow-y-auto xl:p-4">
+              <nav
+                className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 xl:mx-0 xl:block xl:space-y-1.5 xl:overflow-visible xl:px-0 xl:pb-0"
+                aria-label="Client dashboard sections"
+              >
+                {clientNavSections.map((section) => {
+                  const isActive = activeSection === section.id;
+
+                  return (
+                    <a
+                      key={section.id}
+                      href={`#${section.id}`}
+                      onClick={() => setActiveSection(section.id)}
+                      className={`min-w-[190px] shrink-0 rounded-[18px] border px-3.5 py-2.5 transition xl:block xl:min-w-0 ${
+                        isActive
+                          ? "border-[#fcb4b3] bg-white text-[#2b2b2b]"
+                          : "border-white/10 bg-white/5 text-white hover:border-white/20 hover:bg-white/10"
+                      }`}
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <section.icon
+                          className={`mt-0.5 h-4 w-4 shrink-0 ${
+                            isActive ? "text-[#f56969]" : "text-white/70"
+                          }`}
+                        />
+                        <div className="min-w-0">
+                          <p className="text-[15px] font-semibold leading-5">{section.label}</p>
+                          <p
+                            className={`mt-0.5 line-clamp-2 text-[11px] leading-4 ${
+                              isActive ? "text-[#7e7e7e]" : "text-white/60"
+                            }`}
+                          >
+                            {section.description}
+                          </p>
+                        </div>
+                      </div>
+                    </a>
+                  );
+                })}
+              </nav>
+            </div>
+          </aside>
+
+          <DashboardGrid>
+            <DashboardCard
+              title="Your appointments"
+              sectionId="appointments"
+              className="lg:col-span-8"
+              eyebrow="Bookings"
+            >
             {bookings.length ? (
               <div className="space-y-4">
                 {bookings.slice(0, 5).map((booking) => {
@@ -516,13 +634,13 @@ export function ClientDashboard() {
                 label="Browse experts"
               />
             )}
-          </DashboardCard>
+            </DashboardCard>
 
-          <DashboardCard
-            title={selectedBooking ? "Booking details" : "Helpful information"}
-            className="lg:col-span-4"
-            eyebrow={selectedBooking ? "Selected session" : "Guide"}
-          >
+            <DashboardCard
+              title={selectedBooking ? "Booking details" : "Helpful information"}
+              className="lg:col-span-4"
+              eyebrow={selectedBooking ? "Selected session" : "Guide"}
+            >
             {selectedBooking ? (
               <div className="space-y-4">
                 <div className="rounded-[22px] bg-[#f7f5f4] p-5">
@@ -640,13 +758,14 @@ export function ClientDashboard() {
                 ))}
               </div>
             )}
-          </DashboardCard>
+            </DashboardCard>
 
-          <DashboardCard
-            title="Payments and invoices"
-            className="lg:col-span-12"
-            eyebrow="Billing history"
-          >
+            <DashboardCard
+              title="Payments and invoices"
+              sectionId="billing"
+              className="lg:col-span-12"
+              eyebrow="Billing history"
+            >
             {payments.length ? (
               <div className="grid gap-4 lg:grid-cols-2">
                 {payments.slice(0, 8).map((payment) => (
@@ -706,13 +825,14 @@ export function ClientDashboard() {
                 description="Captured payments and invoice references will appear here once you complete checkout."
               />
             )}
-          </DashboardCard>
+            </DashboardCard>
 
-          <DashboardCard
-            title="Past and completed bookings"
-            className="lg:col-span-12"
-            eyebrow="History"
-          >
+            <DashboardCard
+              title="Past and completed bookings"
+              sectionId="history"
+              className="lg:col-span-12"
+              eyebrow="History"
+            >
             {completedBookings.length ? (
               <div className="grid gap-4 lg:grid-cols-2">
                 {completedBookings.slice(0, 6).map((booking) => {
@@ -756,20 +876,22 @@ export function ClientDashboard() {
                 description="Completed or cancelled sessions will appear here once your booking history starts growing."
               />
             )}
-          </DashboardCard>
+            </DashboardCard>
 
-          <DashboardCard
-            title="Messages"
-            className="lg:col-span-12"
-            eyebrow="Client-professional chat"
-          >
+            <DashboardCard
+              title="Messages"
+              sectionId="messages"
+              className="lg:col-span-12"
+              eyebrow="Client-professional chat"
+            >
             <DashboardChatPanel
               title="Session conversations"
               description="Use this space to share practical updates with your professional before or after a confirmed session."
               emptyDescription="Your booking-related chats will appear here once you start messaging around a session."
             />
-          </DashboardCard>
-        </DashboardGrid>
+            </DashboardCard>
+          </DashboardGrid>
+        </div>
       </DashboardShell>
     </ProtectedRoute>
   );
